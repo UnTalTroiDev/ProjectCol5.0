@@ -1,6 +1,10 @@
-fastapi
-uvicorn[standard]
-pandas
-requests
-cachetools
-python-dateutil
+# Pinned for reproducible builds.
+# To update: pip install --upgrade <pkg> then run pip freeze > requirements.txt
+# and commit the result.
+
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pandas==2.2.3
+requests==2.32.3
+cachetools==5.5.0
+python-dateutil==2.9.0.post0

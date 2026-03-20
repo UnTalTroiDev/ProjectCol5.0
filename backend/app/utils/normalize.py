@@ -1,6 +1,20 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
+
+
+def norm_key(s: Any) -> str:
+    """
+    Convierte un nombre de columna a una clave minuscula sin caracteres especiales,
+    util para comparar nombres de columnas con tildes, espacios o encodings rotos.
+
+    Ejemplos:
+        'Año'        -> 'ao'   (acento eliminado junto con la n-tilde rota)
+        'FECHA_HECHO'-> 'fechahecho'
+        'Código'     -> 'cdigo'
+    """
+    return re.sub(r"[^a-z0-9]", "", str(s).lower())
 
 
 def normalize_code(value: Any, width: int = 2) -> Optional[str]:

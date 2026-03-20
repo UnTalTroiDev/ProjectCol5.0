@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
@@ -8,8 +10,9 @@ from cachetools import TTLCache, cached
 from .data_loader import load_investment_por_comuna, load_mobility_aforos, load_safety_homicidios
 from ..schemas.dashboard import OverviewResponse
 from ..config import DATASETS
-from ..utils.normalize import normalize_code
+from ..utils.normalize import norm_key, normalize_code
 
+logger = logging.getLogger(__name__)
 
 _SUMMARY_CACHE_TTL_SECONDS = 60 * 20  # 20 minutos: suficiente para demo.
 _summary_cache: TTLCache[str, dict] = TTLCache(maxsize=2, ttl=_SUMMARY_CACHE_TTL_SECONDS)
@@ -31,11 +34,6 @@ def _latest_year_from_column(df: pd.DataFrame, year_col: str) -> int:
 
 
 def _compute_mobility_by_comuna(df: pd.DataFrame) -> Tuple[int, pd.DataFrame]:
-    import re
-
-    def norm_key(s: Any) -> str:
-        return re.sub(r"[^a-z0-9]", "", str(s).lower())
-
     year_col = None
     for c in df.columns:
         nk = norm_key(c)
@@ -88,11 +86,6 @@ def _compute_mobility_by_comuna(df: pd.DataFrame) -> Tuple[int, pd.DataFrame]:
 
 
 def _compute_safety_by_comuna(df: pd.DataFrame) -> Tuple[int, pd.DataFrame]:
-    import re
-
-    def norm_key(s: Any) -> str:
-        return re.sub(r"[^a-z0-9]", "", str(s).lower())
-
     cols_map = {norm_key(c): c for c in df.columns}
 
     # Esperado en el CSV: fecha_hecho, codigo_comuna, cantidad.
@@ -136,12 +129,6 @@ def _compute_safety_by_comuna(df: pd.DataFrame) -> Tuple[int, pd.DataFrame]:
 
 
 def _compute_investment_by_comuna(df: pd.DataFrame) -> Tuple[int, pd.DataFrame]:
-    import re
-
-    def norm_key(s: Any) -> str:
-        # Normaliza nombres de columnas (ej: 'Año' puede venir como 'A�o' por encoding).
-        return re.sub(r"[^a-z0-9]", "", str(s).lower())
-
     cols_map = {norm_key(c): c for c in df.columns}
 
     year_col = cols_map.get("vigencia")
@@ -202,13 +189,29 @@ def get_territory_comunas() -> List[Dict[str, Any]]:
 
 @cached(_summary_cache)
 def _get_all_summaries() -> Dict[str, Any]:
+    logger.info("Cache miss: cargando todos los datasets desde MEData...")
+    t0 = time.monotonic()
+
     mobility_df = load_mobility_aforos()
+    logger.info("Mobility dataset cargado: %d filas", len(mobility_df))
+
     safety_df = load_safety_homicidios()
+    logger.info("Safety dataset cargado: %d filas", len(safety_df))
+
     investment_df = load_investment_por_comuna()
+    logger.info("Investment dataset cargado: %d filas", len(investment_df))
 
     mobility_latest_year, mobility_by = _compute_mobility_by_comuna(mobility_df)
+    logger.info("Mobility computado: año %d, %d comunas", mobility_latest_year, len(mobility_by))
+
     safety_latest_year, safety_by = _compute_safety_by_comuna(safety_df)
+    logger.info("Safety computado: año %d, %d comunas", safety_latest_year, len(safety_by))
+
     investment_latest_year, investment_by = _compute_investment_by_comuna(investment_df)
+    logger.info("Investment computado: año %d, %d comunas", investment_latest_year, len(investment_by))
+
+    elapsed = time.monotonic() - t0
+    logger.info("_get_all_summaries completado en %.2fs", elapsed)
 
     return {
         "mobility": {"latest_year": mobility_latest_year, "by": mobility_by},
@@ -218,6 +221,7 @@ def _get_all_summaries() -> Dict[str, Any]:
 
 
 def get_dashboard_overview(comuna_code: str) -> OverviewResponse:
+    logger.info("get_dashboard_overview: comuna_code=%r", comuna_code)
     summaries = _get_all_summaries()
     mobility_latest_year, mobility_by = summaries["mobility"]["latest_year"], summaries["mobility"]["by"]
     safety_latest_year, safety_by = summaries["safety"]["latest_year"], summaries["safety"]["by"]
@@ -254,31 +258,75 @@ def get_dashboard_overview(comuna_code: str) -> OverviewResponse:
     avg_safety = city_avgs["safety_homicides"]["value"]
     avg_investment = city_avgs["investment_amount"]["value"]
 
+    def _fmt(v: float) -> str:
+        """Formatea un float grande con separadores de miles, sin decimales."""
+        return f"{v:,.0f}"
+
     if comuna_code == "ALL":
+        top_safety = safety_by.sort_values("safety_homicides", ascending=False).iloc[0]
+        top_mob = mobility_by.sort_values("mobility_equiv_vehicles", ascending=False).iloc[0]
         recs = [
-            "Comparar comunas: usar el filtro territorial para identificar prioridades de intervención.",
-            "Priorizar comunas con mayor brecha entre seguridad y asignación de recursos.",
+            (
+                f"Comparar comunas: la comuna con mas homicidios ({top_safety['comuna_code']}) "
+                f"registra {_fmt(top_safety['safety_homicides'])} casos vs. "
+                f"promedio ciudad de {_fmt(avg_safety)}. "
+                "Usar el filtro territorial para identificar prioridades de inversion."
+            ),
+            (
+                f"Mayor flujo vehicular en comuna {top_mob['comuna_code']}: "
+                f"{_fmt(top_mob['mobility_equiv_vehicles'])} vehiculos equivalentes "
+                f"vs. promedio {_fmt(avg_mobility)}. "
+                "Cruzar con seguridad para focalizar infraestructura."
+            ),
             "Alinear oportunidades para pymes con zonas de alto flujo y necesidades de servicio.",
         ]
     else:
-        # Si hay valores faltantes, conservamos recomendaciones genéricas.
+        # Si hay valores faltantes, conservamos recomendaciones genericas.
         if pd.isna(selected_safety) or pd.isna(selected_mobility) or pd.isna(selected_investment):
+            logger.warning(
+                "Valores faltantes para comuna %s: safety=%s mobility=%s investment=%s",
+                comuna_code, selected_safety, selected_mobility, selected_investment,
+            )
             recs = [
-                "Completar el análisis en el piloto: asegurar correspondencia entre comuna y métricas.",
-                "Usar el dashboard para identificar señales y validar con actores locales.",
-                "Extender el prototipo con una capa de mapa para facilitar adopción.",
+                "Completar el analisis en el piloto: asegurar correspondencia entre comuna y metricas.",
+                "Usar el dashboard para identificar senales y validar con actores locales.",
+                "Extender el prototipo con una capa de mapa para facilitar adopcion.",
             ]
         else:
             if selected_safety > avg_safety and selected_investment < avg_investment:
-                recs.append("Priorizar intervenciones de seguridad con enfoque territorial (prevención, vigilancia focalizada y seguimiento).")
+                pct_safety = (selected_safety - avg_safety) / avg_safety * 100
+                gap_inv = avg_investment - selected_investment
+                recs.append(
+                    f"Priorizar seguridad: esta comuna tiene {_fmt(selected_safety)} homicidios "
+                    f"({pct_safety:+.1f}% sobre el promedio de {_fmt(avg_safety)}), "
+                    f"con una brecha de inversion de COP {_fmt(gap_inv)} respecto al promedio. "
+                    "Focalizar prevencion y vigilancia territorial."
+                )
             if selected_mobility > avg_mobility and selected_safety > avg_safety:
-                recs.append("Optimizar planes de movilidad-seguridad: señalización, cultura vial y gestión de puntos críticos de circulación.")
+                pct_mob = (selected_mobility - avg_mobility) / avg_mobility * 100
+                recs.append(
+                    f"Movilidad-seguridad critica: {_fmt(selected_mobility)} vehiculos equivalentes "
+                    f"({pct_mob:+.1f}% sobre promedio de {_fmt(avg_mobility)}) "
+                    f"y {_fmt(selected_safety)} homicidios (promedio {_fmt(avg_safety)}). "
+                    "Intervenir en senalizacion, cultura vial y puntos criticos de circulacion."
+                )
             if selected_investment > avg_investment:
-                recs.append("Visibilizar el impacto de la inversión: convertir datos en indicadores claros para actores y pymes (transparencia y oportunidades).")
+                pct_inv = (selected_investment - avg_investment) / avg_investment * 100
+                recs.append(
+                    f"Inversion destacada: COP {_fmt(selected_investment)} "
+                    f"({pct_inv:+.1f}% sobre promedio de COP {_fmt(avg_investment)}). "
+                    "Visibilizar impacto con indicadores claros para actores y pymes."
+                )
             if not recs:
                 recs = [
-                    "Mantener estrategias actuales y monitorear tendencias: revisar cambios trimestre a trimestre.",
-                    "Definir metas por comuna (seguridad, movilidad e inversión) y publicar resultados comparables.",
+                    (
+                        f"Indicadores dentro del rango promedio: "
+                        f"seguridad {_fmt(selected_safety)} casos (promedio {_fmt(avg_safety)}), "
+                        f"movilidad {_fmt(selected_mobility)} (promedio {_fmt(avg_mobility)}), "
+                        f"inversion COP {_fmt(selected_investment)} (promedio COP {_fmt(avg_investment)}). "
+                        "Mantener estrategias actuales y monitorear tendencias trimestralmente."
+                    ),
+                    "Definir metas por comuna y publicar resultados comparables.",
                     "Construir alianzas con emprendedores locales para usar el dashboard en decisiones operativas.",
                 ]
 
