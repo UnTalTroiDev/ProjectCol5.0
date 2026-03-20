@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+
+# Env files
+.env
+.env.*
+
+# Node (si cae al root)
+node_modules/
+dist/
+
