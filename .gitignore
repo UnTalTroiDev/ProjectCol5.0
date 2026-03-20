@@ -13,9 +13,10 @@ env/
 # OS
 .DS_Store
 
-# Env files
+# Env files — ignore all .env variants EXCEPT the documented example.
 .env
 .env.*
+!.env.example
 
 # Node (si cae al root)
 node_modules/
