@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import './App.css'
 
 type ComunaOption = { code: string; name?: string | null }
@@ -7,7 +7,7 @@ type ComunaOption = { code: string; name?: string | null }
 type MetricBlock = { value: number | null; unit: string }
 
 type OverviewResponse = {
-  meta: Record<string, any>
+  meta: Record<string, unknown>
   selected: { comuna_code: string; comuna_name?: string | null }
   metrics: Record<string, MetricBlock>
   city_averages: Record<string, MetricBlock>
@@ -27,6 +27,30 @@ function metricValueText(m?: MetricBlock) {
   if (!m || m.value === null || !Number.isFinite(m.value)) return 'N/D'
   if (m.unit === 'COP') return `${formatCOP(m.value)}`
   return `${m.value.toLocaleString('es-CO', { maximumFractionDigits: 2 })}`
+}
+
+function SkeletonGrid() {
+  return (
+    <main className="grid">
+      <section className="cards">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="card skeleton-card">
+            <div className="skeleton-line skeleton-w60" />
+            <div className="skeleton-line skeleton-value" />
+            <div className="skeleton-line skeleton-w40" />
+          </div>
+        ))}
+      </section>
+      <section className="charts">
+        {[0, 1].map((i) => (
+          <div key={i} className="chartPanel skeleton-chart">
+            <div className="skeleton-line skeleton-w50" />
+            <div className="skeleton-rect" />
+          </div>
+        ))}
+      </section>
+    </main>
+  )
 }
 
 export default function App() {
@@ -61,8 +85,8 @@ export default function App() {
       if (!res.ok) throw new Error(`Error cargando overview: ${res.status}`)
       const json: OverviewResponse = await res.json()
       setData(json)
-    } catch (e: any) {
-      setError(e?.message ?? 'Error desconocido')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error desconocido')
     } finally {
       setLoading(false)
     }
@@ -71,8 +95,8 @@ export default function App() {
   useEffect(() => {
     ;(async () => {
       await loadComunas()
-    })().catch((e) => {
-      setError(e?.message ?? 'Error cargando comunas')
+    })().catch((e: unknown) => {
+      setError(e instanceof Error ? e.message : 'Error cargando comunas')
       setLoading(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,7 +104,9 @@ export default function App() {
 
   useEffect(() => {
     if (comunas.length === 0) return
-    loadOverview(selected).catch((e) => setError(e?.message ?? 'Error cargando dashboard'))
+    loadOverview(selected).catch((e: unknown) =>
+      setError(e instanceof Error ? e.message : 'Error cargando dashboard')
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, comunas.length])
 
@@ -96,13 +122,16 @@ export default function App() {
     value: r.safety_homicides,
   }))
 
+  const showSkeleton = !data && loading
+  const showError = !!error && !data
+
   return (
     <div className="page">
       <header className="header">
         <div>
           <h1>MedCity Dashboard</h1>
           <p className="subtitle">
-            Dashboard demo con datos abiertos de Medellín (MEData): movilidad, homicidios e inversión territorial.
+            Movilidad, seguridad e inversión pública — datos abiertos de Medellín
           </p>
         </div>
         <div className="filter">
@@ -119,32 +148,58 @@ export default function App() {
         </div>
       </header>
 
-      {error ? (
+      {showError ? (
         <div className="errorBox">
           <div className="errorTitle">No se pudo cargar el dashboard</div>
           <div className="errorMsg">{error}</div>
         </div>
       ) : null}
 
-      {loading || !data ? (
-        <div className="loading">Cargando...</div>
-      ) : (
-        <main className="grid">
+      {showSkeleton ? (
+        <SkeletonGrid />
+      ) : data ? (
+        <main className={`grid${loading ? ' grid--loading' : ''}`}>
           <section className="cards">
             <div className="card">
               <div className="cardTitle">Movilidad (equivalentes)</div>
               <div className="cardValue">{metricValueText(data.metrics.mobility_equiv_vehicles)}</div>
-              <div className="cardMeta">Año: {data.meta.mobility_latest_year}</div>
+              {selected !== 'ALL' && data.city_averages.mobility_equiv_vehicles ? (
+                <div className="cardCompare">
+                  <span className="cardCompareLabel">Promedio ciudad:</span>
+                  <span className="cardCompareValue">
+                    {metricValueText(data.city_averages.mobility_equiv_vehicles)}
+                  </span>
+                </div>
+              ) : null}
+              <div className="cardMeta">Año: {String(data.meta.mobility_latest_year ?? '—')}</div>
             </div>
+
             <div className="card">
               <div className="cardTitle">Homicidios (casos)</div>
               <div className="cardValue">{metricValueText(data.metrics.safety_homicides)}</div>
-              <div className="cardMeta">Año: {data.meta.safety_latest_year}</div>
+              {selected !== 'ALL' && data.city_averages.safety_homicides ? (
+                <div className="cardCompare">
+                  <span className="cardCompareLabel">Promedio ciudad:</span>
+                  <span className="cardCompareValue">
+                    {metricValueText(data.city_averages.safety_homicides)}
+                  </span>
+                </div>
+              ) : null}
+              <div className="cardMeta">Año: {String(data.meta.safety_latest_year ?? '—')}</div>
             </div>
+
             <div className="card">
               <div className="cardTitle">Inversión pública</div>
               <div className="cardValue">{metricValueText(data.metrics.investment_amount)}</div>
-              <div className="cardMeta">Año: {data.meta.investment_latest_year}</div>
+              {selected !== 'ALL' && data.city_averages.investment_amount ? (
+                <div className="cardCompare">
+                  <span className="cardCompareLabel">Promedio ciudad:</span>
+                  <span className="cardCompareValue">
+                    {metricValueText(data.city_averages.investment_amount)}
+                  </span>
+                </div>
+              ) : null}
+              <div className="cardMeta">Año: {String(data.meta.investment_latest_year ?? '—')}</div>
             </div>
           </section>
 
@@ -157,7 +212,19 @@ export default function App() {
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#2563eb" />
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                      {mobilityChart.map((entry) => {
+                        const isSelected = selected !== 'ALL' && entry.code === selected
+                        const isAll = selected === 'ALL'
+                        return (
+                          <Cell
+                            key={entry.code}
+                            fill={isAll || isSelected ? 'var(--primary)' : 'var(--primary-muted)'}
+                            fillOpacity={isAll ? 0.85 : isSelected ? 1 : 0.55}
+                          />
+                        )
+                      })}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -171,7 +238,19 @@ export default function App() {
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#dc2626" />
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                      {safetyChart.map((entry) => {
+                        const isSelected = selected !== 'ALL' && entry.code === selected
+                        const isAll = selected === 'ALL'
+                        return (
+                          <Cell
+                            key={entry.code}
+                            fill={isAll || isSelected ? 'var(--danger)' : 'var(--danger-muted)'}
+                            fillOpacity={isAll ? 0.85 : isSelected ? 1 : 0.55}
+                          />
+                        )
+                      })}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -192,8 +271,7 @@ export default function App() {
             </div>
           </section>
         </main>
-      )}
+      ) : null}
     </div>
   )
 }
-
