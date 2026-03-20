@@ -61,13 +61,13 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
 
   const comunaOptions = useMemo(() => {
-    const base: ComunaOption[] = [{ code: 'ALL', name: 'Todas las comunas' }]
+    const base: ComunaOption[] = [{ code: 'ALL', name: 'Toda la ciudad' }]
     return base.concat(comunas)
   }, [comunas])
 
   async function loadComunas() {
     const res = await fetch(`${API_URL}/api/territory/comunas`)
-    if (!res.ok) throw new Error(`Error cargando comunas: ${res.status}`)
+    if (!res.ok) throw new Error('No pudimos obtener la lista de territorios. Recarga la pagina para intentarlo de nuevo.')
     const json = await res.json()
     setComunas(json.comunas ?? [])
     if (json.comunas?.length) {
@@ -82,11 +82,11 @@ export default function App() {
       const res = await fetch(
         `${API_URL}/api/dashboard/overview?comuna_code=${encodeURIComponent(comunaCode)}`
       )
-      if (!res.ok) throw new Error(`Error cargando overview: ${res.status}`)
+      if (!res.ok) throw new Error('No pudimos cargar los datos del dashboard. Revisa tu conexion e intenta de nuevo.')
       const json: OverviewResponse = await res.json()
       setData(json)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error desconocido')
+      setError(e instanceof Error ? e.message : 'Ocurrio un problema inesperado. Recarga la pagina para intentarlo de nuevo.')
     } finally {
       setLoading(false)
     }
@@ -96,7 +96,7 @@ export default function App() {
     ;(async () => {
       await loadComunas()
     })().catch((e: unknown) => {
-      setError(e instanceof Error ? e.message : 'Error cargando comunas')
+      setError(e instanceof Error ? e.message : 'No pudimos conectar con el servidor. Revisa tu conexion e intenta de nuevo.')
       setLoading(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,7 +105,7 @@ export default function App() {
   useEffect(() => {
     if (comunas.length === 0) return
     loadOverview(selected).catch((e: unknown) =>
-      setError(e instanceof Error ? e.message : 'Error cargando dashboard')
+      setError(e instanceof Error ? e.message : 'No pudimos cargar el dashboard. Revisa tu conexion e intenta de nuevo.')
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, comunas.length])
@@ -131,16 +131,16 @@ export default function App() {
         <div>
           <h1>MedCity Dashboard</h1>
           <p className="subtitle">
-            Movilidad, seguridad e inversión pública — datos abiertos de Medellín
+            Movilidad, seguridad e inversión pública de Medellín
           </p>
         </div>
         <div className="filter">
           <label>
-            Comuna / territorio:
-            <select value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Seleccionar comuna">
+            Territorio
+            <select value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Seleccionar territorio">
               {comunaOptions.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.name ? `${c.name} (${c.code})` : c.code}
+                  {c.code === 'ALL' ? c.name : c.name ? `${c.name} (${c.code})` : c.code}
                 </option>
               ))}
             </select>
@@ -150,7 +150,7 @@ export default function App() {
 
       {showError ? (
         <div className="errorBox">
-          <div className="errorTitle">No se pudo cargar el dashboard</div>
+          <div className="errorTitle">No pudimos cargar los datos</div>
           <div className="errorMsg">{error}</div>
         </div>
       ) : null}
@@ -161,8 +161,9 @@ export default function App() {
         <main className={`grid${loading ? ' grid--loading' : ''}`}>
           <section className="cards">
             <div className="card">
-              <div className="cardTitle">Movilidad (equivalentes)</div>
+              <div className="cardTitle">Flujo vehicular</div>
               <div className="cardValue">{metricValueText(data.metrics.mobility_equiv_vehicles)}</div>
+              <div className="cardUnit">vehiculos equivalentes</div>
               {selected !== 'ALL' && data.city_averages.mobility_equiv_vehicles ? (
                 <div className="cardCompare">
                   <span className="cardCompareLabel">Promedio ciudad:</span>
@@ -175,7 +176,7 @@ export default function App() {
             </div>
 
             <div className="card">
-              <div className="cardTitle">Homicidios (casos)</div>
+              <div className="cardTitle">Homicidios</div>
               <div className="cardValue">{metricValueText(data.metrics.safety_homicides)}</div>
               {selected !== 'ALL' && data.city_averages.safety_homicides ? (
                 <div className="cardCompare">
@@ -205,7 +206,7 @@ export default function App() {
 
           <section className="charts">
             <div className="chartPanel">
-              <div className="chartTitle">Movilidad por comuna (top)</div>
+              <div className="chartTitle">Top 10 comunas por flujo vehicular</div>
               <div className="chartBody">
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={mobilityChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -231,7 +232,7 @@ export default function App() {
             </div>
 
             <div className="chartPanel">
-              <div className="chartTitle">Homicidios por comuna (top)</div>
+              <div className="chartTitle">Top 10 comunas por homicidios</div>
               <div className="chartBody">
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={safetyChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -258,10 +259,10 @@ export default function App() {
           </section>
 
           <section className="recs">
-            <div className="chartTitle">Recomendaciones accionables</div>
+            <div className="chartTitle">Analisis y recomendaciones</div>
             <div className="recsBox">
               <div className="recsMeta">
-                Territorio seleccionado: <b>{data.selected.comuna_name ?? data.selected.comuna_code}</b>
+                Territorio: <b>{data.selected.comuna_name ?? data.selected.comuna_code}</b>
               </div>
               <ol className="recsList">
                 {data.recommendations.map((r, idx) => (

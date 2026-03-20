@@ -64,7 +64,8 @@
 }
 
 .errorMsg {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
 .grid {
@@ -104,6 +105,13 @@
   font-size: 22px;
   font-weight: 900;
   margin-bottom: 6px;
+}
+
+.cardUnit {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-transform: lowercase;
 }
 
 .cardMeta {
