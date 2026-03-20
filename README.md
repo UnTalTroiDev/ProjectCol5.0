@@ -7,7 +7,7 @@ Prototipo con **backend Python (FastAPI)** y **frontend React** para un dashboar
 
 ## Requisitos
 
-- Python 3.10+ (se recomienda 3.14 como en tu equipo)
+- Python 3.10+
 - Node.js 18+
 
 ## Ejecutar backend
