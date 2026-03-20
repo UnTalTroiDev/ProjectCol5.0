@@ -147,6 +147,11 @@
   height: 280px;
 }
 
+/* Charts apilados al lado del mapa — altura menor */
+.chartsStack .chartBody {
+  height: 240px;
+}
+
 .recs {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -209,6 +214,133 @@
 
 /* Loading overlay para cambio de comuna */
 .grid--loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s ease-out; }
+
+/* ── Map + Charts row ──────────────────────────────────────────── */
+.mapRow {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .mapRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chartsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Choropleth map panel ──────────────────────────────────────── */
+.mapPanel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card-bg);
+}
+
+.mapHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mapToggle {
+  display: flex;
+  gap: 4px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.mapToggleBtn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.mapToggleBtn:hover {
+  background: var(--border);
+}
+
+.mapToggleBtn--active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.mapToggleBtn--active:hover {
+  background: var(--primary);
+  opacity: 0.9;
+}
+
+.mapSvgWrap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* Hover info bar below SVG */
+.mapInfoBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 4px 2px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.mapInfoName {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.mapInfoVal {
+  color: var(--text);
+}
+
+.mapInfoHint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+/* Color legend */
+.mapLegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mapLegendLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.mapLegendBar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+}
 
 /* City averages bajo cada card */
 .cardCompare {

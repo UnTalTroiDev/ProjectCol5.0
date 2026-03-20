@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import MedellinMap from './MedellinMap'
 import './App.css'
 
 type ComunaOption = { code: string; name?: string | null }
@@ -122,6 +123,15 @@ export default function App() {
     value: r.safety_homicides,
   }))
 
+  const mapData = useMemo(() => ({
+    mobility: Object.fromEntries(
+      (data?.mobility_by_comuna ?? []).map((r) => [r.comuna_code, r.mobility_equiv_vehicles])
+    ),
+    safety: Object.fromEntries(
+      (data?.safety_by_comuna ?? []).map((r) => [r.comuna_code, r.safety_homicides])
+    ),
+  }), [data])
+
   const showSkeleton = !data && loading
   const showError = !!error && !data
 
@@ -204,59 +214,67 @@ export default function App() {
             </div>
           </section>
 
-          <section className="charts">
-            <div className="chartPanel">
-              <div className="chartTitle">Top 10 comunas por flujo vehicular</div>
-              <div className="chartBody">
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={mobilityChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {mobilityChart.map((entry) => {
-                        const isSelected = selected !== 'ALL' && entry.code === selected
-                        const isAll = selected === 'ALL'
-                        return (
-                          <Cell
-                            key={entry.code}
-                            fill={isAll || isSelected ? 'var(--primary)' : 'var(--primary-muted)'}
-                            fillOpacity={isAll ? 0.85 : isSelected ? 1 : 0.55}
-                          />
-                        )
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+          <div className="mapRow">
+            <MedellinMap
+              data={mapData}
+              selected={selected}
+              onSelect={setSelected}
+            />
 
-            <div className="chartPanel">
-              <div className="chartTitle">Top 10 comunas por homicidios</div>
-              <div className="chartBody">
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={safetyChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {safetyChart.map((entry) => {
-                        const isSelected = selected !== 'ALL' && entry.code === selected
-                        const isAll = selected === 'ALL'
-                        return (
-                          <Cell
-                            key={entry.code}
-                            fill={isAll || isSelected ? 'var(--danger)' : 'var(--danger-muted)'}
-                            fillOpacity={isAll ? 0.85 : isSelected ? 1 : 0.55}
-                          />
-                        )
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <section className="chartsStack">
+              <div className="chartPanel">
+                <div className="chartTitle">Top 10 por flujo vehicular</div>
+                <div className="chartBody">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={mobilityChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {mobilityChart.map((entry) => {
+                          const isSelected = selected !== 'ALL' && entry.code === selected
+                          const isAll = selected === 'ALL'
+                          return (
+                            <Cell
+                              key={entry.code}
+                              fill={isAll || isSelected ? 'var(--primary)' : 'var(--primary-muted)'}
+                              fillOpacity={isAll ? 0.85 : isSelected ? 1 : 0.55}
+                            />
+                          )
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
-          </section>
+
+              <div className="chartPanel">
+                <div className="chartTitle">Top 10 por homicidios</div>
+                <div className="chartBody">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={safetyChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {safetyChart.map((entry) => {
+                          const isSelected = selected !== 'ALL' && entry.code === selected
+                          const isAll = selected === 'ALL'
+                          return (
+                            <Cell
+                              key={entry.code}
+                              fill={isAll || isSelected ? 'var(--danger)' : 'var(--danger-muted)'}
+                              fillOpacity={isAll ? 0.85 : isSelected ? 1 : 0.55}
+                            />
+                          )
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </section>
+          </div>
 
           <section className="recs">
             <div className="chartTitle">Analisis y recomendaciones</div>
