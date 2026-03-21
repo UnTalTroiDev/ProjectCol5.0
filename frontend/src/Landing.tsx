@@ -27,21 +27,19 @@ const GRADIENTS = {
 } as const
 
 const MEDELLIN_KEYFRAMES = `
-@keyframes medellinGradientFlow {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+@keyframes medellinColorCycle {
+  0%   { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
 }
 `
 
 const medellinAnimatedStyle: React.CSSProperties = {
-  background: 'linear-gradient(270deg, #00E5B0, #7B8CFF, #FFB347, #FF6B6B, #00E5B0)',
-  backgroundSize: '300% 300%',
+  background: 'linear-gradient(135deg, #00E5B0, #7B8CFF, #FFB347, #FF6B6B)',
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
   display: 'inline',
-  animation: 'medellinGradientFlow 5s ease infinite',
+  animation: 'medellinColorCycle 3s linear infinite',
 }
 
 // ─── Animation variants ──────────────────────────────────────────────────────
