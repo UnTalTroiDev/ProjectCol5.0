@@ -5,6 +5,7 @@ import {
   AnimatePresence,
   type Variants,
 } from 'framer-motion'
+import ParticleBackground from './components/ParticleBackground'
 
 // ─── Design tokens ──────────────────────────────────────────────────────────
 
@@ -318,6 +319,9 @@ function Hero() {
         padding: '80px 24px',
       }}
     >
+      {/* Particle canvas — z-index 0, fills the entire Hero */}
+      <ParticleBackground />
+
       {/* Radial glow background */}
       <div
         aria-hidden="true"
