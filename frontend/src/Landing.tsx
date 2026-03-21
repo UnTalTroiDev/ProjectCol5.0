@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   motion,
   useInView,
@@ -25,6 +25,24 @@ const GRADIENTS = {
   warm: 'linear-gradient(135deg, #FFB347, #FF6B6B)',
   hero: 'linear-gradient(135deg, #00E5B0, #FFB347, #7B8CFF)',
 } as const
+
+const MEDELLIN_KEYFRAMES = `
+@keyframes medellinGradientFlow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+`
+
+const medellinAnimatedStyle: React.CSSProperties = {
+  background: 'linear-gradient(270deg, #00E5B0, #7B8CFF, #FFB347, #FF6B6B, #00E5B0)',
+  backgroundSize: '300% 300%',
+  backgroundClip: 'text',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  display: 'inline',
+  animation: 'medellinGradientFlow 5s ease infinite',
+}
 
 // ─── Animation variants ──────────────────────────────────────────────────────
 
@@ -408,7 +426,9 @@ function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.25, ease: EASE_SPRING }}
           >
-            <GradientText color="hero">de Medellín</GradientText>
+            <style>{MEDELLIN_KEYFRAMES}</style>
+            <GradientText color="hero">de </GradientText>
+            <span style={medellinAnimatedStyle}>Medellín</span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 30 }}
