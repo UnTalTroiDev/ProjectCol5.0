@@ -425,7 +425,7 @@ function Hero() {
             transition={{ duration: 0.7, delay: 0.25, ease: EASE_SPRING }}
           >
             <style>{MEDELLIN_KEYFRAMES}</style>
-            <GradientText color="hero">de </GradientText>
+            <span style={{ color: '#ffffff' }}>de </span>
             <span style={medellinAnimatedStyle}>Medellín</span>
           </motion.div>
           <motion.div
