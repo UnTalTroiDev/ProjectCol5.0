@@ -34,7 +34,7 @@ app = FastAPI(
         "API para un dashboard de Medellin usando datos abiertos (MEData). "
         "Cubre movilidad, seguridad, salud, educacion, medio ambiente, calidad de vida y mas."
     ),
-    version="0.3.0",
+    version="0.4.0",
 )
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
@@ -53,7 +53,7 @@ app.add_middleware(
 
 @app.get("/api/health", tags=["sistema"])
 def health() -> dict:
-    return {"status": "ok", "version": "0.3.0"}
+    return {"status": "ok", "version": "0.4.0"}
 
 
 # ── Territorio ─────────────────────────────────────────────────────────────

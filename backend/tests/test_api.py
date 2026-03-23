@@ -49,7 +49,9 @@ class TestHealth:
     def test_health_returns_200(self):
         response = client.get("/api/health")
         assert response.status_code == 200
-        assert response.json() == {"status": "ok"}
+        body = response.json()
+        assert body["status"] == "ok"
+        assert "version" in body
 
 
 # ---------------------------------------------------------------------------
@@ -275,3 +277,265 @@ class TestDashboardCrimeStats:
     def test_crime_stats_invalid_year_rejected(self):
         response = client.get("/api/dashboard/crime-stats", params={"year": 1500})
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Dashboard compare — multi-comuna
+# ---------------------------------------------------------------------------
+
+class TestDashboardCompare:
+    def test_compare_two_comunas_returns_200(self):
+        comunas = client.get("/api/territory/comunas").json()["comunas"]
+        if len(comunas) >= 2:
+            codes = f"{comunas[0]['code']},{comunas[1]['code']}"
+            response = client.get("/api/dashboard/compare", params={"comunas": codes})
+            _assert_no_server_error(response)
+            assert response.status_code == 200
+
+    def test_compare_response_has_comunas_list(self):
+        comunas = client.get("/api/territory/comunas").json()["comunas"]
+        if len(comunas) >= 2:
+            codes = f"{comunas[0]['code']},{comunas[1]['code']}"
+            response = client.get("/api/dashboard/compare", params={"comunas": codes})
+            assert response.status_code == 200
+            body = response.json()
+            assert "comunas" in body and "year" in body
+            assert isinstance(body["comunas"], list)
+            assert len(body["comunas"]) == 2
+
+    def test_compare_each_row_has_metrics(self):
+        comunas = client.get("/api/territory/comunas").json()["comunas"]
+        if len(comunas) >= 1:
+            codes = comunas[0]['code']
+            response = client.get("/api/dashboard/compare", params={"comunas": codes})
+            assert response.status_code == 200
+            row = response.json()["comunas"][0]
+            assert "comuna_code" in row
+            assert "mobility_equiv_vehicles" in row
+            assert "safety_homicides" in row
+            assert "investment_amount" in row
+
+    def test_compare_without_comunas_returns_422(self):
+        response = client.get("/api/dashboard/compare")
+        assert response.status_code == 422
+
+    def test_compare_invalid_year_rejected(self):
+        response = client.get("/api/dashboard/compare", params={"comunas": "01", "year": 1800})
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Security — criminalidad consolidada
+# ---------------------------------------------------------------------------
+
+class TestSecurityCriminalidad:
+    def test_criminalidad_returns_200(self):
+        response = client.get("/api/security/criminalidad")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_criminalidad_has_available_flag(self):
+        response = client.get("/api/security/criminalidad")
+        _assert_no_server_error(response)
+        body = response.json()
+        assert "available" in body
+
+    def test_criminalidad_with_year(self):
+        response = client.get("/api/security/criminalidad", params={"year": 2022})
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_criminalidad_invalid_year_rejected(self):
+        response = client.get("/api/security/criminalidad", params={"year": 1800})
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Security — violencia intrafamiliar
+# ---------------------------------------------------------------------------
+
+class TestSecurityViolenciaIntrafamiliar:
+    def test_vif_returns_200(self):
+        response = client.get("/api/security/violencia-intrafamiliar")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_vif_has_available_flag(self):
+        response = client.get("/api/security/violencia-intrafamiliar")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+    def test_vif_invalid_year_rejected(self):
+        response = client.get("/api/security/violencia-intrafamiliar", params={"year": 1800})
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Salud — natalidad
+# ---------------------------------------------------------------------------
+
+class TestHealthNatalidad:
+    def test_natalidad_returns_200(self):
+        response = client.get("/api/health-data/natalidad")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_natalidad_has_available_flag(self):
+        response = client.get("/api/health-data/natalidad")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+    def test_natalidad_invalid_year_rejected(self):
+        response = client.get("/api/health-data/natalidad", params={"year": 1800})
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Salud — hospitalización
+# ---------------------------------------------------------------------------
+
+class TestHealthHospitalizacion:
+    def test_hospitalizacion_returns_200(self):
+        response = client.get("/api/health-data/hospitalizacion")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_hospitalizacion_has_available_flag(self):
+        response = client.get("/api/health-data/hospitalizacion")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+
+# ---------------------------------------------------------------------------
+# Educación — establecimientos
+# ---------------------------------------------------------------------------
+
+class TestEducationEstablecimientos:
+    def test_establecimientos_returns_200(self):
+        response = client.get("/api/education/establecimientos")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_establecimientos_has_available_flag(self):
+        response = client.get("/api/education/establecimientos")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+    def test_establecimientos_with_comuna_filter(self):
+        comunas = client.get("/api/territory/comunas").json()["comunas"]
+        if comunas:
+            code = comunas[0]["code"]
+            response = client.get("/api/education/establecimientos", params={"comuna_code": code})
+            _assert_no_server_error(response)
+            assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Educación — ambiente escolar
+# ---------------------------------------------------------------------------
+
+class TestEducationAmbienteEscolar:
+    def test_ambiente_escolar_returns_200(self):
+        response = client.get("/api/education/ambiente-escolar")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_ambiente_escolar_has_available_flag(self):
+        response = client.get("/api/education/ambiente-escolar")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+
+# ---------------------------------------------------------------------------
+# Medio Ambiente — residuos sólidos
+# ---------------------------------------------------------------------------
+
+class TestEnvironmentResiduos:
+    def test_residuos_returns_200(self):
+        response = client.get("/api/environment/residuos")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_residuos_has_available_flag(self):
+        response = client.get("/api/environment/residuos")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+    def test_residuos_invalid_year_rejected(self):
+        response = client.get("/api/environment/residuos", params={"year": 1800})
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Calidad de Vida — IMCV
+# ---------------------------------------------------------------------------
+
+class TestQualityImcv:
+    def test_imcv_returns_200(self):
+        response = client.get("/api/quality/imcv")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_imcv_has_available_flag(self):
+        response = client.get("/api/quality/imcv")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+    def test_imcv_with_comuna_filter(self):
+        comunas = client.get("/api/territory/comunas").json()["comunas"]
+        if comunas:
+            code = comunas[0]["code"]
+            response = client.get("/api/quality/imcv", params={"comuna_code": code})
+            _assert_no_server_error(response)
+            assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Calidad de Vida — siniestros viales
+# ---------------------------------------------------------------------------
+
+class TestQualitySiniestros:
+    def test_siniestros_returns_200(self):
+        response = client.get("/api/quality/siniestros-viales")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_siniestros_has_available_flag(self):
+        response = client.get("/api/quality/siniestros-viales")
+        _assert_no_server_error(response)
+        assert "available" in response.json()
+
+
+# ---------------------------------------------------------------------------
+# Ciudad — resumen global
+# ---------------------------------------------------------------------------
+
+class TestCitySummary:
+    def test_city_summary_returns_200(self):
+        response = client.get("/api/city/summary")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_city_summary_structure(self):
+        response = client.get("/api/city/summary")
+        _assert_no_server_error(response)
+        body = response.json()
+        assert "domains" in body
+        assert "available_domains" in body
+        assert "total_domains" in body
+        assert "message" in body
+
+    def test_city_summary_domains_is_dict(self):
+        response = client.get("/api/city/summary")
+        _assert_no_server_error(response)
+        domains = response.json()["domains"]
+        assert isinstance(domains, dict)
+        assert len(domains) > 0
+        for key, domain in domains.items():
+            assert "available" in domain, f"Domain '{key}' missing 'available' flag"
+
+    def test_city_summary_counts_match(self):
+        response = client.get("/api/city/summary")
+        _assert_no_server_error(response)
+        body = response.json()
+        assert body["total_domains"] == len(body["domains"])

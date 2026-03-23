@@ -8,15 +8,16 @@ Dashboard interactivo de datos abiertos de Medellín (MEData) que permite explor
 
 ## Qué hace
 
-Selecciona cualquier comuna de Medellín y explora **7 dominios de datos** con navegación por tabs:
+Selecciona cualquier comuna de Medellín y explora **8 dominios de datos** con navegación por tabs:
 
-- 🏙 **Visión general** — Movilidad, seguridad e inversión pública con tendencias históricas y recomendaciones basadas en percentiles
-- 🔒 **Seguridad** — Criminalidad consolidada: 10+ tipos de delito (homicidios, hurtos, extorsión, delitos sexuales) desde 2003
+- 🏙 **Visión general** — Movilidad, seguridad e inversión pública con tendencias históricas y recomendaciones basadas en percentiles; mapa coroplético real con react-leaflet
+- 🔒 **Seguridad** — Criminalidad consolidada (10+ tipos de delito desde 2003) + Violencia Intrafamiliar por comuna y año
 - 🏥 **Salud** — Natalidad por año, sexo y comuna; egresos hospitalarios por diagnóstico
 - 📚 **Educación** — Directorio de 806+ establecimientos educativos por comuna y modalidad; indicadores de ambiente escolar
 - 🌿 **Medio Ambiente** — Generación de residuos sólidos ordinarios y aprovechables por tipo y mes
 - 📊 **Calidad de vida** — Índice Multidimensional de Calidad de Vida (IMCV) por comuna y dimensión; víctimas en incidentes viales
 - 🗺 **Ciudad** — Panel de disponibilidad en tiempo real de todos los datasets MEData
+- ⚖️ **Comparar** — Selección múltiple de comunas para comparar homicidios, inversión y movilidad; exporta los resultados a CSV
 
 ---
 
@@ -24,9 +25,9 @@ Selecciona cualquier comuna de Medellín y explora **7 dominios de datos** con n
 
 | Capa | Tecnología |
 |---|---|
-| Frontend | React 19 + TypeScript + Vite + Recharts |
+| Frontend | React 19 + TypeScript + Vite + Recharts + react-leaflet |
 | Backend | Python 3.11 + FastAPI + Pandas |
-| Datos | 12 datasets CSV de [MEData](https://medata.gov.co) con caché TTL 6h + stale fallback 24h |
+| Datos | 13 datasets CSV de [MEData](https://medata.gov.co) con caché TTL 6h + SQLite stale fallback |
 | Infraestructura | Docker + docker-compose |
 
 ---
@@ -34,17 +35,17 @@ Selecciona cualquier comuna de Medellín y explora **7 dominios de datos** con n
 ## Arquitectura
 
 ```
-Browser (React — 7 tabs)
+Browser (React — 8 tabs)
     │
     │  REST / JSON
     ▼
-FastAPI v0.3.0 (Python)
-    │  retry 3x + backoff + stale cache
+FastAPI v0.4.0 (Python)
+    │  retry 3x + backoff + SQLite stale cache (persiste entre reinicios)
     ▼
-MEData CSVs — 12 datasets (Movilidad · Seguridad · Salud · Educación · Ambiente · Calidad)
+MEData CSVs — 13 datasets (Movilidad · Seguridad · Salud · Educación · Ambiente · Calidad)
     │
     ▼
-Pandas — agregación por comuna, percentiles, tendencias anuales
+Pandas — agregación por comuna, percentiles, tendencias anuales, comparador multi-comuna
 ```
 
 ---
@@ -113,6 +114,7 @@ MEDATA_LESIONES_URL=http://medata.gov.co/...  # opcional
 | GET | `/api/dashboard/overview` | `comuna_code`, `year` | KPIs, rankings y recomendaciones por percentil |
 | GET | `/api/dashboard/trends` | `metric`, `comuna_code` | Serie temporal por año (`mobility`, `safety`, `investment`) |
 | GET | `/api/dashboard/crime-stats` | `comuna_code`, `year` | Homicidios + lesiones comunes combinados |
+| GET | `/api/dashboard/compare` | `comunas`, `year` | Compara movilidad, homicidios e inversión para varias comunas (ej: `?comunas=01,04,09`) |
 
 ### Seguridad ampliada
 
@@ -178,7 +180,7 @@ Todos los datos son abiertos bajo licencia **Creative Commons BY-SA 4.0** · [me
 pytest backend/tests/
 ```
 
-Cubre: health, comunas, overview (ALL y por código), tendencias, crime-stats, filtros de año, validación 404/422.
+Cubre: health, comunas, overview (ALL y por código), tendencias, crime-stats, compare, seguridad (criminalidad + VIF), salud, educación, ambiente, calidad de vida, city/summary — filtros de año, validación 404/422.
 
 ---
 
@@ -188,7 +190,7 @@ Cubre: health, comunas, overview (ALL y por código), tendencias, crime-stats, f
 ProjectCol5.0/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                    # FastAPI v0.3.0 — 15 endpoints
+│   │   ├── main.py                    # FastAPI v0.4.0 — 16 endpoints
 │   │   ├── config.py                  # URLs de 13 datasets MEData
 │   │   ├── schemas/
 │   │   │   ├── dashboard.py           # OverviewResponse, TrendsResponse, etc.
