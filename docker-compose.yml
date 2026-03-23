@@ -16,6 +16,11 @@ networks:
   medcity:
     driver: bridge
 
+volumes:
+  # Persistent storage for the SQLite stale cache DB.
+  # Survives container restarts — MEData CSVs are not re-downloaded on every boot.
+  stale_cache_data:
+
 services:
 
   # --------------------------------------------------------------------------
@@ -30,11 +35,14 @@ services:
     volumes:
       # Bind-mount source so code changes are reflected without a rebuild.
       - ./backend:/app
+      # Named volume for SQLite stale cache — persists across container restarts.
+      - stale_cache_data:/app/data
     env_file:
       - .env
     environment:
       # Override / set defaults here; values in .env take precedence.
       ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}"
+      STALE_CACHE_DB: "${STALE_CACHE_DB:-/app/data/medata_stale.sqlite3}"
     networks:
       - medcity
     healthcheck:
