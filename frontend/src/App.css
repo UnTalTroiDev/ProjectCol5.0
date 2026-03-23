@@ -5,6 +5,7 @@
   color: var(--text);
 }
 
+/* ── Header ─────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
@@ -29,6 +30,15 @@
   margin: 2px 0 0;
 }
 
+/* Filtros en header */
+.filters {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filters label,
 .filter label {
   display: flex;
   flex-direction: column;
@@ -36,19 +46,28 @@
   font-size: 14px;
 }
 
+.filters select,
 .filter select {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--background);
   color: var(--text);
+  min-width: 140px;
 }
 
-.loading {
-  font-weight: 600;
-  padding: 20px;
+@media (max-width: 1024px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .filters {
+    flex-direction: column;
+    gap: 10px;
+  }
 }
 
+/* ── Error ───────────────────────────────────────────────────────── */
 .errorBox {
   border: 1px solid #ef4444;
   background: #fee2e2;
@@ -58,21 +77,16 @@
   margin: 16px 0;
 }
 
-.errorTitle {
-  font-weight: 800;
-  margin-bottom: 6px;
-}
+.errorTitle { font-weight: 800; margin-bottom: 6px; }
+.errorMsg { font-size: 14px; line-height: 1.4; }
 
-.errorMsg {
-  font-size: 14px;
-  line-height: 1.4;
-}
-
+/* ── Grid ────────────────────────────────────────────────────────── */
 .grid {
   display: grid;
   gap: 18px;
 }
 
+/* ── KPI Cards ───────────────────────────────────────────────────── */
 .cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -80,13 +94,7 @@
 }
 
 @media (max-width: 1024px) {
-  .cards {
-    grid-template-columns: 1fr;
-  }
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  .cards { grid-template-columns: 1fr; }
 }
 
 .card {
@@ -96,16 +104,8 @@
   background: var(--card-bg);
 }
 
-.cardTitle {
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.cardValue {
-  font-size: 22px;
-  font-weight: 900;
-  margin-bottom: 6px;
-}
+.cardTitle { font-weight: 700; margin-bottom: 8px; }
+.cardValue { font-size: 22px; font-weight: 900; margin-bottom: 6px; }
 
 .cardUnit {
   font-size: 12px;
@@ -114,11 +114,22 @@
   text-transform: lowercase;
 }
 
-.cardMeta {
-  font-size: 13px;
-  opacity: 0.8;
-}
+.cardMeta { font-size: 13px; opacity: 0.8; }
 
+.cardCompare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  padding: 4px 0;
+  border-top: 1px dashed var(--border);
+}
+.cardCompareLabel { white-space: nowrap; }
+.cardCompareValue { font-weight: 700; color: var(--text-h); }
+
+/* ── Shared chart panel ──────────────────────────────────────────── */
 .charts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -126,9 +137,7 @@
 }
 
 @media (max-width: 1024px) {
-  .charts {
-    grid-template-columns: 1fr;
-  }
+  .charts { grid-template-columns: 1fr; }
 }
 
 .chartPanel {
@@ -138,84 +147,13 @@
   background: var(--card-bg);
 }
 
-.chartTitle {
-  font-weight: 800;
-  margin-bottom: 10px;
-}
+.chartTitle { font-weight: 800; margin-bottom: 10px; }
 
-.chartBody {
-  height: 280px;
-}
+.chartBody { height: 280px; }
 
-/* Charts apilados al lado del mapa — altura menor */
-.chartsStack .chartBody {
-  height: 240px;
-}
+.chartsStack .chartBody { height: 240px; }
 
-.recs {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
-  background: var(--card-bg);
-}
-
-.recsBox {
-  margin-top: 10px;
-}
-
-.recsMeta {
-  margin-bottom: 10px;
-  opacity: 0.9;
-}
-
-.recsList {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.recsList li {
-  margin: 6px 0;
-}
-
-/* Skeleton Loading */
-@keyframes skeleton-shimmer {
-  0% { background-position: -200px 0; }
-  100% { background-position: calc(200px + 100%) 0; }
-}
-
-.skeleton-line {
-  height: 14px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 100px, var(--skeleton-base) 200px);
-  background-size: calc(200px + 100%) 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
-}
-
-.skeleton-value { height: 28px; width: 45%; margin: 10px 0 8px; border-radius: 8px; }
-.skeleton-w60 { width: 60%; }
-.skeleton-w50 { width: 50%; }
-.skeleton-w40 { width: 40%; }
-
-.skeleton-rect {
-  height: 240px;
-  margin-top: 12px;
-  border-radius: 8px;
-  background: linear-gradient(90deg, var(--skeleton-base) 0px, var(--skeleton-shine) 100px, var(--skeleton-base) 200px);
-  background-size: calc(200px + 100%) 100%;
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
-}
-
-.skeleton-card:nth-child(2) .skeleton-line,
-.skeleton-card:nth-child(2) .skeleton-value { animation-delay: 0.1s; }
-.skeleton-card:nth-child(3) .skeleton-line,
-.skeleton-card:nth-child(3) .skeleton-value { animation-delay: 0.2s; }
-.skeleton-chart:nth-child(2) .skeleton-line,
-.skeleton-chart:nth-child(2) .skeleton-rect { animation-delay: 0.15s; }
-
-/* Loading overlay para cambio de comuna */
-.grid--loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s ease-out; }
-
-/* ── Map + Charts row ──────────────────────────────────────────── */
+/* ── Map + Charts row ────────────────────────────────────────────── */
 .mapRow {
   display: grid;
   grid-template-columns: 3fr 2fr;
@@ -224,9 +162,7 @@
 }
 
 @media (max-width: 1024px) {
-  .mapRow {
-    grid-template-columns: 1fr;
-  }
+  .mapRow { grid-template-columns: 1fr; }
 }
 
 .chartsStack {
@@ -235,7 +171,7 @@
   gap: 14px;
 }
 
-/* ── Choropleth map panel ──────────────────────────────────────── */
+/* ── Map styles ──────────────────────────────────────────────────── */
 .mapPanel {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -274,9 +210,7 @@
   white-space: nowrap;
 }
 
-.mapToggleBtn:hover {
-  background: var(--border);
-}
+.mapToggleBtn:hover { background: var(--border); }
 
 .mapToggleBtn--active {
   background: var(--primary);
@@ -294,7 +228,6 @@
   border-radius: 8px;
 }
 
-/* Hover info bar below SVG */
 .mapInfoBar {
   display: flex;
   align-items: center;
@@ -307,22 +240,10 @@
   flex-wrap: wrap;
 }
 
-.mapInfoName {
-  font-weight: 700;
-  color: var(--text-h);
-}
+.mapInfoName { font-weight: 700; color: var(--text-h); }
+.mapInfoVal { color: var(--text); }
+.mapInfoHint { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
 
-.mapInfoVal {
-  color: var(--text);
-}
-
-.mapInfoHint {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-left: auto;
-}
-
-/* Color legend */
 .mapLegend {
   display: flex;
   align-items: center;
@@ -330,30 +251,212 @@
   margin-top: 10px;
 }
 
-.mapLegendLabel {
-  font-size: 11px;
-  color: var(--text-secondary);
+.mapLegendLabel { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+
+.mapLegendBar { flex: 1; height: 8px; border-radius: 4px; }
+
+/* ── Tendencias temporales ───────────────────────────────────────── */
+.trendsPanel { }
+
+.trendsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.trendsToggle {
+  display: flex;
+  gap: 4px;
+  background: var(--background, #f9fafb);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.trendsBtn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
 
-.mapLegendBar {
-  flex: 1;
-  height: 8px;
-  border-radius: 4px;
+.trendsBtn:hover { background: var(--border); }
+
+.trendsBtn--active { color: #fff; }
+.trendsBtn--safety.trendsBtn--active    { background: var(--danger); }
+.trendsBtn--mobility.trendsBtn--active  { background: var(--primary); }
+.trendsBtn--investment.trendsBtn--active { background: var(--invest); }
+
+.trendsEmpty {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 32px 0;
+  text-align: center;
 }
 
-/* City averages bajo cada card */
-.cardCompare {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.trendsMeta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  text-align: right;
+}
+
+/* ── Crime stats ─────────────────────────────────────────────────── */
+.crimeSection {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card-bg);
+}
+
+.crimeTitle { margin-bottom: 12px; }
+
+.crimeCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .crimeCards { grid-template-columns: 1fr; }
+}
+
+.crimeCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--background, #fff);
+}
+
+.crimeCard--homicidios {
+  border-left: 4px solid var(--danger);
+}
+
+.crimeCard--lesiones {
+  border-left: 4px solid var(--invest);
+}
+
+.crimeCard--unavailable {
+  opacity: 0.55;
+  border-left-color: var(--border);
+}
+
+.crimeCardLabel {
   font-size: 13px;
+  font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 6px;
-  padding: 4px 0;
-  border-top: 1px dashed var(--border);
 }
-.cardCompareLabel { white-space: nowrap; }
-.cardCompareValue { font-weight: 700; color: var(--text-h); }
-.cardCompareUp { color: var(--danger); }
-.cardCompareDown { color: var(--primary); }
+
+.crimeCardValue {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text-h);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.crimeCardUnit {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.crimeChartWrap {
+  grid-column: span 1;
+}
+
+.crimeChartLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.crimeLoading {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  text-align: right;
+}
+
+/* ── Recomendaciones ─────────────────────────────────────────────── */
+.recs {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card-bg);
+}
+
+.recsBox { margin-top: 10px; }
+
+.recsMeta { margin-bottom: 10px; opacity: 0.9; }
+
+.recsYear { font-size: 13px; color: var(--text-secondary); }
+
+.recsList { margin: 0; padding-left: 18px; }
+
+.recsList li { margin: 8px 0; line-height: 1.5; }
+
+/* Severity color coding en recomendaciones */
+.recsList li.sev-critico { color: var(--danger); font-weight: 600; }
+.recsList li.sev-alto    { color: var(--invest); font-weight: 600; }
+.recsList li.sev-medio   { color: var(--text); }
+.recsList li.sev-bajo    { color: var(--text-secondary); }
+
+/* ── Skeleton Loading ────────────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0px,
+    var(--skeleton-shine) 100px,
+    var(--skeleton-base) 200px
+  );
+  background-size: calc(200px + 100%) 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-value  { height: 28px; width: 45%; margin: 10px 0 8px; border-radius: 8px; }
+.skeleton-w60    { width: 60%; }
+.skeleton-w50    { width: 50%; }
+.skeleton-w40    { width: 40%; }
+
+.skeleton-rect {
+  height: 240px;
+  margin-top: 12px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0px,
+    var(--skeleton-shine) 100px,
+    var(--skeleton-base) 200px
+  );
+  background-size: calc(200px + 100%) 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-card:nth-child(2) .skeleton-line,
+.skeleton-card:nth-child(2) .skeleton-value  { animation-delay: 0.1s; }
+.skeleton-card:nth-child(3) .skeleton-line,
+.skeleton-card:nth-child(3) .skeleton-value  { animation-delay: 0.2s; }
+.skeleton-chart:nth-child(2) .skeleton-line,
+.skeleton-chart:nth-child(2) .skeleton-rect  { animation-delay: 0.15s; }
+
+/* Loading overlay para cambio de comuna */
+.grid--loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s ease-out; }
