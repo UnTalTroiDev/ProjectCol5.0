@@ -6,7 +6,7 @@ Dashboard interactivo de datos abiertos de Medellín (MEData) que permite explor
 
 ---
 
-## Qué hace
+## ¿Qué hace?
 
 Selecciona cualquier comuna de Medellín y explora **8 dominios de datos** con navegación por tabs:
 
