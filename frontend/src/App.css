@@ -413,6 +413,138 @@
 .recsList li.sev-medio   { color: var(--text); }
 .recsList li.sev-bajo    { color: var(--text-secondary); }
 
+/* ── Tab Navigation ──────────────────────────────────────────────── */
+.tabNav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.tabNav::-webkit-scrollbar { display: none; }
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+.tabBtn:hover { color: var(--text); background: var(--border); }
+.tabBtn--active { color: var(--text-h); border-bottom: 2px solid var(--primary); }
+
+.tabIcon { font-size: 16px; }
+.tabLabel { }
+
+/* ── Tab content ─────────────────────────────────────────────────── */
+.tabContent { display: grid; gap: 18px; }
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-h);
+  margin: 0 0 4px;
+}
+
+.sectionDesc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+/* ── Two-column layout ───────────────────────────────────────────── */
+.twoCol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 1024px) { .twoCol { grid-template-columns: 1fr; } }
+
+/* ── Domain cards row ────────────────────────────────────────────── */
+.domainCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.domainCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--card-bg);
+}
+.domainCardLabel { font-size: 12px; color: var(--text-secondary); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+.domainCardValue { font-size: 28px; font-weight: 900; color: var(--text-h); line-height: 1; margin-bottom: 2px; }
+.domainCardSub { font-size: 12px; color: var(--text-secondary); }
+
+/* ── Unavailable card ────────────────────────────────────────────── */
+.unavailableCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.unavailableIcon { font-size: 20px; }
+
+/* ── City summary ────────────────────────────────────────────────── */
+.cityBanner {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+}
+.cityBannerNum  { font-size: 48px; font-weight: 900; color: var(--primary); line-height: 1; }
+.cityBannerSlash{ font-size: 32px; color: var(--text-secondary); }
+.cityBannerTotal{ font-size: 32px; font-weight: 700; color: var(--text-h); }
+.cityBannerLabel{ font-size: 16px; color: var(--text-secondary); margin-left: 8px; }
+
+.domainGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.domainStatusCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+.domainStatusCard--ok  { border-left: 4px solid var(--primary); }
+.domainStatusCard--off { border-left: 4px solid var(--border); opacity: 0.6; }
+
+.domainStatusDot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.domainStatusCard--ok  .domainStatusDot { background: var(--primary); }
+.domainStatusCard--off .domainStatusDot { background: var(--text-secondary); }
+
+.domainStatusLabel { font-weight: 700; font-size: 14px; color: var(--text-h); }
+.domainStatusMeta  { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
 /* ── Skeleton Loading ────────────────────────────────────────────── */
 @keyframes skeleton-shimmer {
   0%   { background-position: -200px 0; }

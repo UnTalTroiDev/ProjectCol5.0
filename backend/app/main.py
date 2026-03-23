@@ -2,46 +2,40 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .schemas.dashboard import (
-    ComunasResponse,
-    CrimeStatsResponse,
-    OverviewResponse,
-    TrendsResponse,
+    ComunasResponse, CrimeStatsResponse, OverviewResponse, TrendsResponse,
 )
+from .schemas.city import CitySummaryResponse
 from .services.dashboard_service import (
-    get_crime_stats,
-    get_dashboard_overview,
-    get_dashboard_trends,
-    get_territory_comunas,
+    get_crime_stats, get_dashboard_overview, get_dashboard_trends, get_territory_comunas,
 )
+from .services.security_service import get_criminalidad_consolidada, get_violencia_intrafamiliar
+from .services.health_service import get_natalidad, get_hospitalizacion
+from .services.education_service import get_establecimientos, get_ambiente_escolar
+from .services.environment_service import get_residuos_solidos
+from .services.quality_service import get_imcv, get_siniestros_viales
 from .utils.normalize import normalize_code
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# App
-# ---------------------------------------------------------------------------
 app = FastAPI(
     title="MedCity Dashboard API",
-    description="API para un dashboard de Medellín usando datos abiertos (MEData).",
-    version="0.2.0",
+    description=(
+        "API para un dashboard de Medellin usando datos abiertos (MEData). "
+        "Cubre movilidad, seguridad, salud, educacion, medio ambiente, calidad de vida y mas."
+    ),
+    version="0.3.0",
 )
 
-# ---------------------------------------------------------------------------
-# CORS
-# ---------------------------------------------------------------------------
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
 ALLOWED_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
@@ -54,101 +48,286 @@ app.add_middleware(
 )
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
+# ── Sistema ────────────────────────────────────────────────────────────────
 
-@app.get("/api/health", tags=["system"])
+@app.get("/api/health", tags=["sistema"])
 def health() -> dict:
-    logger.info("Health check OK")
-    return {"status": "ok"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
-@app.get("/api/territory/comunas", response_model=ComunasResponse, tags=["territory"])
+# ── Territorio ─────────────────────────────────────────────────────────────
+
+@app.get("/api/territory/comunas", response_model=ComunasResponse, tags=["territorio"])
 def comunas() -> ComunasResponse:
     result = get_territory_comunas()
-    logger.info("GET /api/territory/comunas -> %d comunas", len(result))
     return ComunasResponse(comunas=result)
 
 
+# ── Dashboard principal ────────────────────────────────────────────────────
+
 @app.get("/api/dashboard/overview", response_model=OverviewResponse, tags=["dashboard"])
 def overview(
-    comuna_code: str = Query(
-        "ALL",
-        description="Codigo normalizado de la comuna (ej: '04') o 'ALL'.",
-        min_length=1,
-        max_length=10,
-    ),
-    year: Optional[int] = Query(
-        None,
-        description="Año a consultar. Si se omite, se usa el ultimo disponible en cada dataset.",
-        ge=2000,
-        le=2100,
-    ),
+    comuna_code: str = Query("ALL", min_length=1, max_length=10,
+                             description="Codigo de comuna o 'ALL'."),
+    year: Optional[int] = Query(None, ge=2000, le=2100,
+                                description="Año a consultar. Omitir = ultimo disponible."),
 ) -> OverviewResponse:
     comuna_code = comuna_code.strip()
-    logger.info("GET /api/dashboard/overview?comuna_code=%s&year=%s", comuna_code, year)
-
     if comuna_code != "ALL":
-        known_codes = {c["code"] for c in get_territory_comunas()}
-        normalized = normalize_code(comuna_code)
-        if normalized not in known_codes:
-            logger.warning("comuna_code no encontrado: %r (normalizado: %r)", comuna_code, normalized)
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "NOT_FOUND",
-                    "message": (
-                        f"No existe la comuna con codigo '{comuna_code}'. "
-                        "Use GET /api/territory/comunas para ver los codigos validos."
-                    ),
-                },
-            )
-
+        known = {c["code"] for c in get_territory_comunas()}
+        norm = normalize_code(comuna_code)
+        if norm not in known:
+            raise HTTPException(status_code=404, detail={
+                "code": "NOT_FOUND",
+                "message": f"No existe la comuna '{comuna_code}'. Use /api/territory/comunas.",
+            })
     return get_dashboard_overview(comuna_code=comuna_code, year=year)
 
 
 @app.get("/api/dashboard/trends", response_model=TrendsResponse, tags=["dashboard"])
 def trends(
-    metric: str = Query(
-        ...,
-        description="Metrica a consultar: 'mobility', 'safety' o 'investment'.",
-    ),
-    comuna_code: Optional[str] = Query(
-        None,
-        description="Codigo de comuna (ej: '04') o None/'ALL' para toda la ciudad.",
-        max_length=10,
-    ),
+    metric: str = Query(..., description="'mobility', 'safety' o 'investment'."),
+    comuna_code: Optional[str] = Query(None, max_length=10),
 ) -> TrendsResponse:
-    valid_metrics = {"mobility", "safety", "investment"}
-    if metric not in valid_metrics:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": "INVALID_METRIC",
-                "message": f"Metrica '{metric}' no valida. Valores aceptados: {sorted(valid_metrics)}.",
-            },
-        )
-
-    logger.info("GET /api/dashboard/trends?metric=%s&comuna_code=%s", metric, comuna_code)
-    result = get_dashboard_trends(metric=metric, comuna_code=comuna_code)
-    return TrendsResponse(**result)
+    if metric not in {"mobility", "safety", "investment"}:
+        raise HTTPException(status_code=422, detail={
+            "code": "INVALID_METRIC",
+            "message": f"Metrica '{metric}' no valida. Valores: mobility, safety, investment.",
+        })
+    return TrendsResponse(**get_dashboard_trends(metric=metric, comuna_code=comuna_code))
 
 
 @app.get("/api/dashboard/crime-stats", response_model=CrimeStatsResponse, tags=["dashboard"])
 def crime_stats(
-    comuna_code: Optional[str] = Query(
-        None,
-        description="Codigo de comuna (ej: '04') o None/'ALL' para toda la ciudad.",
-        max_length=10,
-    ),
-    year: Optional[int] = Query(
-        None,
-        description="Año a consultar. Si se omite, se usa el ultimo disponible.",
-        ge=2000,
-        le=2100,
-    ),
+    comuna_code: Optional[str] = Query(None, max_length=10),
+    year: Optional[int] = Query(None, ge=2000, le=2100),
 ) -> CrimeStatsResponse:
-    logger.info("GET /api/dashboard/crime-stats?comuna_code=%s&year=%s", comuna_code, year)
-    result = get_crime_stats(comuna_code=comuna_code, year=year)
-    return CrimeStatsResponse(**result)
+    return CrimeStatsResponse(**get_crime_stats(comuna_code=comuna_code, year=year))
+
+
+# ── Seguridad ampliada ─────────────────────────────────────────────────────
+
+@app.get("/api/security/criminalidad", tags=["seguridad"])
+def criminalidad(
+    year: Optional[int] = Query(None, ge=2000, le=2100,
+                                description="Año a consultar. Omitir = todos los años."),
+    crime_type: Optional[str] = Query(None, max_length=80,
+                                      description="Filtrar por tipo de delito (ej: 'HOMICIDIO')."),
+) -> Dict[str, Any]:
+    """
+    Criminalidad consolidada de Medellin: homicidios, hurtos (personas/carros/motos/residencias),
+    extorsion, lesiones, violencia intrafamiliar, delitos sexuales.
+    Fuente: SISC · MEData `1-027-23-000306`.
+    """
+    return get_criminalidad_consolidada(year=year, crime_type=crime_type)
+
+
+@app.get("/api/security/violencia-intrafamiliar", tags=["seguridad"])
+def violencia_intrafamiliar(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+) -> Dict[str, Any]:
+    """
+    Solicitudes de medidas de proteccion por violencia intrafamiliar por comuna y año.
+    Fuente: Comisarias de Familia · MEData `1-027-23-000028`.
+    """
+    return get_violencia_intrafamiliar(year=year)
+
+
+# ── Salud ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/health-data/natalidad", tags=["salud"])
+def natalidad(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+) -> Dict[str, Any]:
+    """
+    Nacimientos en Medellin por año, sexo y comuna.
+    Fuente: Secretaria de Salud · MEData `1-026-22-000029`.
+    """
+    return get_natalidad(year=year)
+
+
+@app.get("/api/health-data/hospitalizacion", tags=["salud"])
+def hospitalizacion(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+) -> Dict[str, Any]:
+    """
+    Egresos hospitalarios por diagnostico y año.
+    Fuente: Secretaria de Salud · MEData `1-026-22-000126`.
+    """
+    return get_hospitalizacion(year=year)
+
+
+# ── Educacion ──────────────────────────────────────────────────────────────
+
+@app.get("/api/education/establecimientos", tags=["educacion"])
+def establecimientos(
+    comuna_code: Optional[str] = Query(None, max_length=10,
+                                       description="Filtrar por codigo de comuna."),
+) -> Dict[str, Any]:
+    """
+    Directorio de establecimientos educativos de Medellin por comuna y modalidad.
+    Fuente: Secretaria de Educacion · MEData `1-011-08-000122`.
+    """
+    return get_establecimientos(comuna_code=comuna_code)
+
+
+@app.get("/api/education/ambiente-escolar", tags=["educacion"])
+def ambiente_escolar(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+) -> Dict[str, Any]:
+    """
+    Indicadores historicos de ambiente escolar (relaciones, comunicacion, participacion).
+    Fuente: Secretaria de Educacion · MEData `1-011-08-000068`.
+    """
+    return get_ambiente_escolar(year=year)
+
+
+# ── Medio Ambiente ─────────────────────────────────────────────────────────
+
+@app.get("/api/environment/residuos", tags=["ambiente"])
+def residuos(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+) -> Dict[str, Any]:
+    """
+    Generacion de residuos solidos (ordinarios y aprovechables) del Centro Administrativo
+    Distrital por mes y tipo. Fuente: Secretaria de Suministros · MEData `1-028-02-000599`.
+    """
+    return get_residuos_solidos(year=year)
+
+
+# ── Calidad de Vida ────────────────────────────────────────────────────────
+
+@app.get("/api/quality/imcv", tags=["calidad-vida"])
+def imcv(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+    comuna_code: Optional[str] = Query(None, max_length=10),
+) -> Dict[str, Any]:
+    """
+    Indice Multidimensional de Calidad de Vida (IMCV) por comuna y dimension
+    (educacion, salud, seguridad social, vivienda, etc.).
+    Fuente: DAP · MEData `1-002-09-000041`.
+    """
+    return get_imcv(year=year, comuna_code=comuna_code)
+
+
+@app.get("/api/quality/siniestros-viales", tags=["calidad-vida"])
+def siniestros_viales(
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+    comuna_code: Optional[str] = Query(None, max_length=10),
+) -> Dict[str, Any]:
+    """
+    Victimas en incidentes viales por tipo, gravedad, comuna y año.
+    Fuente: Secretaria de Movilidad · MEData `1-023-25-000360`.
+    """
+    return get_siniestros_viales(year=year, comuna_code=comuna_code)
+
+
+# ── Resumen ciudad ─────────────────────────────────────────────────────────
+
+@app.get("/api/city/summary", tags=["ciudad"])
+def city_summary() -> Dict[str, Any]:
+    """
+    KPIs de alto nivel para todos los dominios de la ciudad.
+    Agrega una llamada ligera a cada dominio y devuelve disponibilidad + metrica principal.
+    """
+    logger.info("GET /api/city/summary")
+
+    domains: Dict[str, Any] = {}
+
+    # Seguridad
+    try:
+        crim = get_criminalidad_consolidada()
+        domains["seguridad"] = {
+            "available": crim.get("available", False),
+            "label": "Criminalidad consolidada",
+            "latest_year": crim.get("available_years", [None])[-1] if crim.get("available_years") else None,
+            "total_tipos": len(crim.get("by_type", [])),
+            "dataset_url": crim.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["seguridad"] = {"available": False, "reason": str(e)}
+
+    # Salud — natalidad
+    try:
+        nat = get_natalidad()
+        domains["salud"] = {
+            "available": nat.get("available", False),
+            "label": "Natalidad",
+            "latest_year": nat.get("latest_year"),
+            "total_nacimientos": nat.get("total_nacimientos"),
+            "dataset_url": nat.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["salud"] = {"available": False, "reason": str(e)}
+
+    # Educacion
+    try:
+        edu = get_establecimientos()
+        domains["educacion"] = {
+            "available": edu.get("available", False),
+            "label": "Establecimientos educativos",
+            "total_establecimientos": edu.get("total"),
+            "dataset_url": edu.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["educacion"] = {"available": False, "reason": str(e)}
+
+    # Medio Ambiente
+    try:
+        env = get_residuos_solidos()
+        domains["ambiente"] = {
+            "available": env.get("available", False),
+            "label": "Residuos solidos",
+            "latest_year": env.get("latest_year"),
+            "total_kg": env.get("total_kg"),
+            "dataset_url": env.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["ambiente"] = {"available": False, "reason": str(e)}
+
+    # Calidad de vida
+    try:
+        imcv_data = get_imcv()
+        domains["calidad_vida"] = {
+            "available": imcv_data.get("available", False),
+            "label": "IMCV — Calidad de Vida",
+            "latest_year": imcv_data.get("latest_year"),
+            "total_comunas": len(imcv_data.get("by_comuna", [])),
+            "dataset_url": imcv_data.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["calidad_vida"] = {"available": False, "reason": str(e)}
+
+    # Siniestros viales
+    try:
+        sin = get_siniestros_viales()
+        domains["siniestros_viales"] = {
+            "available": sin.get("available", False),
+            "label": "Victimas incidentes viales",
+            "latest_year": sin.get("latest_year"),
+            "total_victimas": sin.get("total_victimas"),
+            "dataset_url": sin.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["siniestros_viales"] = {"available": False, "reason": str(e)}
+
+    # Violencia intrafamiliar
+    try:
+        vif = get_violencia_intrafamiliar()
+        domains["violencia_intrafamiliar"] = {
+            "available": vif.get("available", False),
+            "label": "Violencia intrafamiliar",
+            "latest_year": vif.get("latest_year"),
+            "total": vif.get("total"),
+            "dataset_url": vif.get("dataset_url"),
+        }
+    except Exception as e:
+        domains["violencia_intrafamiliar"] = {"available": False, "reason": str(e)}
+
+    available_count = sum(1 for d in domains.values() if d.get("available"))
+    return {
+        "domains": domains,
+        "available_domains": available_count,
+        "total_domains": len(domains),
+        "message": f"{available_count}/{len(domains)} dominios de datos disponibles en MEData.",
+    }
