@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import sqlite3
 import time
 from io import BytesIO
 from typing import Optional
@@ -15,7 +17,41 @@ from ..config import CSV_CACHE_TTL_SECONDS, DATASETS
 logger = logging.getLogger(__name__)
 
 _byte_cache: TTLCache[str, bytes] = TTLCache(maxsize=32, ttl=CSV_CACHE_TTL_SECONDS)
-_stale_cache: dict[str, bytes] = {}
+
+# ── SQLite stale cache ─────────────────────────────────────────────────────
+_SQLITE_PATH = os.getenv("STALE_CACHE_DB", "/tmp/medata_stale.sqlite3")
+
+def _get_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(_SQLITE_PATH, check_same_thread=False)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS stale_cache "
+        "(url TEXT PRIMARY KEY, content BLOB NOT NULL, updated_at REAL NOT NULL)"
+    )
+    conn.commit()
+    return conn
+
+_db: sqlite3.Connection = _get_db()
+
+
+def _stale_put(url: str, content: bytes) -> None:
+    try:
+        _db.execute(
+            "INSERT INTO stale_cache(url, content, updated_at) VALUES(?,?,?) "
+            "ON CONFLICT(url) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at",
+            (url, content, time.time()),
+        )
+        _db.commit()
+    except Exception as exc:
+        logger.warning("stale_put failed: %s", exc)
+
+
+def _stale_get(url: str) -> Optional[bytes]:
+    try:
+        row = _db.execute("SELECT content FROM stale_cache WHERE url=?", (url,)).fetchone()
+        return row[0] if row else None
+    except Exception as exc:
+        logger.warning("stale_get failed: %s", exc)
+        return None
 
 _RETRY_ATTEMPTS = 3
 _RETRY_BACKOFF_BASE = 2
@@ -43,26 +79,29 @@ def _download_with_retry(url: str) -> bytes:
 
 @cached(_byte_cache)
 def fetch_url_bytes(url: str) -> bytes:
-    """Descarga con retry y fallback a stale cache."""
+    """Descarga con retry y fallback a stale cache (SQLite persistente)."""
     try:
         content = _download_with_retry(url)
-        _stale_cache[url] = content
+        _stale_put(url, content)
         return content
     except requests.exceptions.Timeout:
-        if url in _stale_cache:
+        stale = _stale_get(url)
+        if stale is not None:
             logger.warning("Sirviendo stale cache para: %s", url)
-            return _stale_cache[url]
+            return stale
         raise HTTPException(status_code=503, detail={"code": "UPSTREAM_TIMEOUT", "url": url})
-    except requests.exceptions.ConnectionError as exc:
-        if url in _stale_cache:
+    except requests.exceptions.ConnectionError:
+        stale = _stale_get(url)
+        if stale is not None:
             logger.warning("Sirviendo stale cache para: %s", url)
-            return _stale_cache[url]
+            return stale
         raise HTTPException(status_code=503, detail={"code": "UPSTREAM_UNAVAILABLE", "url": url})
     except requests.exceptions.HTTPError as exc:
         status = exc.response.status_code if exc.response is not None else "?"
-        if url in _stale_cache:
+        stale = _stale_get(url)
+        if stale is not None:
             logger.warning("Sirviendo stale cache para: %s", url)
-            return _stale_cache[url]
+            return stale
         raise HTTPException(status_code=502, detail={"code": "UPSTREAM_HTTP_ERROR", "http_status": status, "url": url})
 
 

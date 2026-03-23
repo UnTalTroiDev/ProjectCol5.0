@@ -36,6 +36,12 @@ type CriminalidadResponse = {
   series: Array<{ year?: number; month?: number; total: number }>
 }
 
+type VifResponse = {
+  available: boolean; latest_year: number | null; total: number
+  by_comuna: Array<{ comuna_code: string; casos: number }>
+  series: Array<{ year: number; total: number }>
+}
+
 type NatalidadResponse = {
   available: boolean; latest_year: number; total_nacimientos: number
   by_comuna: Array<{ comuna_code: string; nacimientos: number }>
@@ -74,7 +80,7 @@ type CitySummary = {
   domains: Record<string, { available: boolean; label: string; latest_year?: number; [k: string]: unknown }>
 }
 
-type Tab = 'overview' | 'security' | 'health' | 'education' | 'environment' | 'quality' | 'city'
+type Tab = 'overview' | 'security' | 'health' | 'education' | 'environment' | 'quality' | 'city' | 'compare'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -131,7 +137,33 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'environment', label: 'Ambiente',         icon: '🌿' },
   { id: 'quality',     label: 'Calidad de vida',  icon: '📊' },
   { id: 'city',        label: 'Ciudad',           icon: '🗺' },
+  { id: 'compare',     label: 'Comparar',         icon: '⚖️' },
 ]
+
+// ---------------------------------------------------------------------------
+// CSV export utility
+// ---------------------------------------------------------------------------
+
+function exportToCSV(rows: Record<string, unknown>[], filename: string) {
+  if (!rows.length) return
+  const headers = Object.keys(rows[0])
+  const lines = [
+    headers.join(','),
+    ...rows.map(r =>
+      headers.map(h => {
+        const v = r[h]
+        const s = v == null ? '' : String(v)
+        return s.includes(',') || s.includes('"') || s.includes('\n')
+          ? `"${s.replace(/"/g, '""')}"` : s
+      }).join(',')
+    ),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 
 // ---------------------------------------------------------------------------
 // App
@@ -157,6 +189,8 @@ export default function App() {
   // ── Security ──────────────────────────────────────────────────────────────
   const [criminalidad, setCriminalidad] = useState<CriminalidadResponse | null>(null)
   const [crimLoading, setCrimLoading] = useState(false)
+  const [vif, setVif] = useState<VifResponse | null>(null)
+  const [vifLoading, setVifLoading] = useState(false)
 
   // ── Health ────────────────────────────────────────────────────────────────
   const [natalidad, setNatalidad] = useState<NatalidadResponse | null>(null)
@@ -178,6 +212,19 @@ export default function App() {
   // ── City ──────────────────────────────────────────────────────────────────
   const [citySummary, setCitySummary] = useState<CitySummary | null>(null)
   const [cityLoading, setCityLoading] = useState(false)
+
+  // ── Compare ───────────────────────────────────────────────────────────────
+  type CompareRow = {
+    comuna_code: string; comuna_name: string
+    mobility_equiv_vehicles: number | null
+    safety_homicides: number | null
+    investment_amount: number | null
+    lesiones_count?: number | null
+  }
+  type CompareResponse = { year: number; comunas: CompareRow[] }
+  const [compareData, setCompareData] = useState<CompareResponse | null>(null)
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareSelected, setCompareSelected] = useState<string[]>([])
 
   const comunaOptions = useMemo(() => {
     return [{ code: 'ALL', name: 'Toda la ciudad' } as ComunaOption].concat(comunas)
@@ -221,12 +268,17 @@ export default function App() {
 
   async function loadSecurity() {
     setCrimLoading(true)
+    setVifLoading(true)
     try {
       const p = new URLSearchParams()
       if (selectedYear) p.set('year', String(selectedYear))
-      const res = await fetch(`${API_URL}/api/security/criminalidad?${p}`)
-      if (res.ok) setCriminalidad(await res.json())
-    } catch { } finally { setCrimLoading(false) }
+      const [crimRes, vifRes] = await Promise.all([
+        fetch(`${API_URL}/api/security/criminalidad?${p}`),
+        fetch(`${API_URL}/api/security/violencia-intrafamiliar?${p}`),
+      ])
+      if (crimRes.ok) setCriminalidad(await crimRes.json())
+      if (vifRes.ok) setVif(await vifRes.json())
+    } catch { } finally { setCrimLoading(false); setVifLoading(false) }
   }
 
   async function loadHealth() {
@@ -282,6 +334,17 @@ export default function App() {
     } catch { } finally { setCityLoading(false) }
   }
 
+  async function loadCompare(codes: string[]) {
+    if (!codes.length) return
+    setCompareLoading(true)
+    try {
+      const p = new URLSearchParams({ comunas: codes.join(',') })
+      if (selectedYear) p.set('year', String(selectedYear))
+      const res = await fetch(`${API_URL}/api/dashboard/compare?${p}`)
+      if (res.ok) setCompareData(await res.json())
+    } catch { } finally { setCompareLoading(false) }
+  }
+
   // ── Effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -313,6 +376,7 @@ export default function App() {
     if (activeTab === 'education' && !establecimientos) loadEducation()
     if (activeTab === 'environment' && !residuos) loadEnvironment()
     if (activeTab === 'quality' && !imcv) loadQuality()
+    if (activeTab === 'compare' && compareSelected.length > 0) loadCompare(compareSelected)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
@@ -498,7 +562,14 @@ export default function App() {
       {/* ── TAB: Seguridad ── */}
       {activeTab === 'security' && (
         <div className="tabContent">
-          <h2 className="sectionTitle">🔒 Seguridad — Criminalidad consolidada</h2>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+            <h2 className="sectionTitle" style={{ margin: 0 }}>🔒 Seguridad — Criminalidad consolidada</h2>
+            {criminalidad?.available && (
+              <button className="exportBtn" onClick={() => exportToCSV(criminalidad.by_type as unknown as Record<string, unknown>[], 'criminalidad_por_tipo.csv')}>
+                ⬇ Exportar CSV
+              </button>
+            )}
+          </div>
           <p className="sectionDesc">Fuente: SISC, Secretaría de Seguridad · MEData. Cubre 10+ tipos de delito desde 2003.</p>
           {crimLoading ? <SectionSkeleton /> : criminalidad?.available ? (
             <div className="grid">
@@ -549,6 +620,53 @@ export default function App() {
               </div>
             </div>
           ) : <UnavailableCard label="Criminalidad consolidada" />}
+
+          {/* VIF */}
+          {vifLoading ? <p className="loadingMsg">Cargando violencia intrafamiliar…</p> : vif?.available ? (
+            <div className="sectionBlock">
+              <h3 className="sectionTitle">Violencia Intrafamiliar (Medidas de Protección)</h3>
+              <div className="domainCards">
+                <div className="domainCard">
+                  <span className="domainCardLabel">Total medidas</span>
+                  <span className="domainCardValue">{vif.total?.toLocaleString()}</span>
+                </div>
+                <div className="domainCard">
+                  <span className="domainCardLabel">Último año</span>
+                  <span className="domainCardValue">{vif.latest_year ?? '—'}</span>
+                </div>
+                <div className="domainCard">
+                  <span className="domainCardLabel">Comunas con datos</span>
+                  <span className="domainCardValue">{vif.by_comuna.length}</span>
+                </div>
+              </div>
+              <div className="twoCol">
+                <div>
+                  <h4>Tendencia anual</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={vif.series}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="year" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="total" stroke="#f59e0b" dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <h4>Top comunas</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={[...vif.by_comuna].sort((a, b) => b.casos - a.casos).slice(0, 10)}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="comuna_code" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="casos" fill="#f59e0b" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          ) : vif && !vif.available ? <UnavailableCard label="Violencia intrafamiliar" /> : null}
         </div>
       )}
 
@@ -813,6 +931,89 @@ export default function App() {
                 ))}
               </div>
             </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* ── TAB: Comparar ── */}
+      {activeTab === 'compare' && (
+        <div className="tabContent">
+          <h2 className="sectionTitle">⚖️ Comparador de comunas</h2>
+          <p className="sectionDesc">Selecciona varias comunas para comparar sus indicadores principales.</p>
+
+          <div className="compareSelector">
+            {comunas.map(c => (
+              <label key={c.code} className={`comparePill${compareSelected.includes(c.code) ? ' comparePill--active' : ''}`}>
+                <input
+                  type="checkbox"
+                  style={{ display: 'none' }}
+                  checked={compareSelected.includes(c.code)}
+                  onChange={e => {
+                    const next = e.target.checked
+                      ? [...compareSelected, c.code]
+                      : compareSelected.filter(x => x !== c.code)
+                    setCompareSelected(next)
+                    if (next.length) loadCompare(next)
+                    else setCompareData(null)
+                  }}
+                />
+                {c.code}{c.name ? ` · ${c.name}` : ''}
+              </label>
+            ))}
+          </div>
+
+          {compareLoading ? <SectionSkeleton /> : compareData && compareData.comunas.length > 0 ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <p className="sectionDesc" style={{ margin: 0 }}>Año: {compareData.year}</p>
+                <button
+                  className="exportBtn"
+                  onClick={() => exportToCSV(compareData.comunas as unknown as Record<string, unknown>[], `comparacion_comunas_${compareData.year}.csv`)}
+                >
+                  ⬇ Exportar CSV
+                </button>
+              </div>
+              <div className="twoCol">
+                <div>
+                  <h4>Homicidios por comuna</h4>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={compareData.comunas}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="comuna_code" />
+                      <YAxis />
+                      <Tooltip formatter={(v: number) => v?.toLocaleString()} />
+                      <Bar dataKey="safety_homicides" name="Homicidios" fill="#ef4444" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div>
+                  <h4>Inversión pública (COP)</h4>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={compareData.comunas}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="comuna_code" />
+                      <YAxis />
+                      <Tooltip formatter={(v: number) => v?.toLocaleString()} />
+                      <Bar dataKey="investment_amount" name="Inversión" fill="#22c55e" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div>
+                <h4>Movilidad — vehículos equivalentes</h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={compareData.comunas}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="comuna_code" />
+                    <YAxis />
+                    <Tooltip formatter={(v: number) => v?.toLocaleString()} />
+                    <Bar dataKey="mobility_equiv_vehicles" name="Movilidad" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          ) : !compareLoading && compareSelected.length === 0 ? (
+            <p className="sectionDesc" style={{ marginTop: 16 }}>Selecciona al menos una comuna arriba para ver la comparación.</p>
           ) : null}
         </div>
       )}

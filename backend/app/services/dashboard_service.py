@@ -706,3 +706,57 @@ def get_crime_stats(
         "top_homicidios_by_comuna": top_homicidios,
         "top_lesiones_by_comuna": top_lesiones,
     }
+
+
+def get_dashboard_compare(
+    comunas: List[str], year: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    Compara metricas principales (movilidad, homicidios, inversion) para una
+    lista de comunas. Devuelve una fila por comuna lista para graficar.
+    """
+    logger.info("get_dashboard_compare: comunas=%r year=%r", comunas, year)
+
+    norm_codes = [normalize_code(c) for c in comunas if normalize_code(c)]
+
+    year_key = "latest" if year is None else str(year)
+    summaries = _get_all_summaries(year_key=year_key)
+
+    mobility_by = summaries["mobility"]["by"]
+    safety_by = summaries["safety"]["by"]
+    investment_by = summaries["investment"]["by"]
+    lesiones_summary = summaries.get("lesiones")
+    lesiones_by: Optional[pd.DataFrame] = lesiones_summary["by"] if lesiones_summary else None
+
+    rows: List[Dict[str, Any]] = []
+    for code in norm_codes:
+        def _val(df: pd.DataFrame, col: str) -> Optional[float]:
+            row = df[df["comuna_code"] == code]
+            return float(row.iloc[0][col]) if not row.empty else None
+
+        mob = _val(mobility_by, "mobility_equiv_vehicles")
+        saf = _val(safety_by, "safety_homicides")
+        inv = _val(investment_by, "investment_amount")
+        les: Optional[float] = None
+        if lesiones_by is not None and not lesiones_by.empty:
+            les = _val(lesiones_by, "lesiones_count")
+
+        # Nombre de la comuna si disponible
+        inv_row = investment_by[investment_by["comuna_code"] == code]
+        name = str(inv_row.iloc[0]["comuna_name"]) if not inv_row.empty and "comuna_name" in inv_row.columns else code
+
+        entry: Dict[str, Any] = {
+            "comuna_code": code,
+            "comuna_name": name,
+            "mobility_equiv_vehicles": mob,
+            "safety_homicides": saf,
+            "investment_amount": inv,
+        }
+        if les is not None:
+            entry["lesiones_count"] = les
+        rows.append(entry)
+
+    return {
+        "year": summaries["mobility"]["latest_year"],
+        "comunas": rows,
+    }

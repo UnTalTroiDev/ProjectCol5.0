@@ -592,3 +592,44 @@
 
 /* Loading overlay para cambio de comuna */
 .grid--loading { opacity: 0.5; pointer-events: none; transition: opacity 0.15s ease-out; }
+
+/* Export button */
+.exportBtn {
+  cursor: pointer;
+  padding: 5px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.exportBtn:hover { background: var(--accent); color: #fff; }
+
+/* Comparador multi-comuna */
+.compareSelector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.comparePill {
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.comparePill:hover { border-color: var(--accent); color: var(--accent); }
+.comparePill--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}

@@ -12,7 +12,8 @@ from .schemas.dashboard import (
 )
 from .schemas.city import CitySummaryResponse
 from .services.dashboard_service import (
-    get_crime_stats, get_dashboard_overview, get_dashboard_trends, get_territory_comunas,
+    get_crime_stats, get_dashboard_compare, get_dashboard_overview,
+    get_dashboard_trends, get_territory_comunas,
 )
 from .services.security_service import get_criminalidad_consolidada, get_violencia_intrafamiliar
 from .services.health_service import get_natalidad, get_hospitalizacion
@@ -95,6 +96,26 @@ def trends(
             "message": f"Metrica '{metric}' no valida. Valores: mobility, safety, investment.",
         })
     return TrendsResponse(**get_dashboard_trends(metric=metric, comuna_code=comuna_code))
+
+
+@app.get("/api/dashboard/compare", tags=["dashboard"])
+def compare(
+    comunas: str = Query(
+        ...,
+        description="Codigos de comuna separados por coma, ej: '01,04,09'.",
+        min_length=1,
+        max_length=100,
+    ),
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+) -> Dict[str, Any]:
+    """
+    Compara movilidad, homicidios e inversion publica para varias comunas.
+    Pasa los codigos separados por coma: `?comunas=01,04,09`.
+    """
+    codes = [c.strip() for c in comunas.split(",") if c.strip()]
+    if not codes:
+        raise HTTPException(status_code=422, detail={"code": "NO_COMUNAS", "message": "Debes pasar al menos un codigo de comuna."})
+    return get_dashboard_compare(comunas=codes, year=year)
 
 
 @app.get("/api/dashboard/crime-stats", response_model=CrimeStatsResponse, tags=["dashboard"])
