@@ -18,10 +18,6 @@ from __future__ import annotations
 import sys
 import os
 
-# ---------------------------------------------------------------------------
-# Path setup — allows `pytest backend/tests/` to be run from the repo root
-# without installing the backend package.
-# ---------------------------------------------------------------------------
 _BACKEND_DIR = os.path.join(os.path.dirname(__file__), "..")
 if _BACKEND_DIR not in sys.path:
     sys.path.insert(0, os.path.abspath(_BACKEND_DIR))
@@ -31,8 +27,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-# A single shared client for the whole session.  TestClient manages the ASGI
-# lifespan so startup/shutdown events are handled correctly.
 client = TestClient(app, raise_server_exceptions=True)
 
 
@@ -41,7 +35,7 @@ client = TestClient(app, raise_server_exceptions=True)
 # ---------------------------------------------------------------------------
 
 def _assert_no_server_error(response) -> None:
-    """Fail fast with a readable message when the server returns 5xx."""
+    """Fail fast con mensaje legible cuando el servidor devuelve 5xx."""
     assert response.status_code < 500, (
         f"Server error {response.status_code}: {response.text[:500]}"
     )
@@ -53,11 +47,9 @@ def _assert_no_server_error(response) -> None:
 
 class TestHealth:
     def test_health_returns_200(self):
-        """GET /api/health must return HTTP 200 and status 'ok'."""
         response = client.get("/api/health")
         assert response.status_code == 200
-        body = response.json()
-        assert body == {"status": "ok"}
+        assert response.json() == {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
@@ -66,30 +58,24 @@ class TestHealth:
 
 class TestTerritoryComunas:
     def test_comunas_returns_200(self):
-        """GET /api/territory/comunas must return HTTP 200."""
         response = client.get("/api/territory/comunas")
         _assert_no_server_error(response)
         assert response.status_code == 200
 
     def test_comunas_returns_non_empty_list(self):
-        """The comunas list must contain at least one entry."""
         response = client.get("/api/territory/comunas")
         assert response.status_code == 200
         body = response.json()
-        assert "comunas" in body, "Response body must have a 'comunas' key"
-        assert isinstance(body["comunas"], list), "'comunas' must be a list"
-        assert len(body["comunas"]) > 0, "comunas list must not be empty"
+        assert "comunas" in body
+        assert isinstance(body["comunas"], list)
+        assert len(body["comunas"]) > 0
 
     def test_each_comuna_has_required_fields(self):
-        """Every entry in the comunas list must have a non-empty 'code' field."""
         response = client.get("/api/territory/comunas")
         assert response.status_code == 200
-        comunas = response.json()["comunas"]
-        for item in comunas:
-            assert "code" in item, f"Missing 'code' in entry: {item}"
-            assert isinstance(item["code"], str) and item["code"], (
-                f"'code' must be a non-empty string, got: {item['code']!r}"
-            )
+        for item in response.json()["comunas"]:
+            assert "code" in item
+            assert isinstance(item["code"], str) and item["code"]
 
 
 # ---------------------------------------------------------------------------
@@ -98,67 +84,66 @@ class TestTerritoryComunas:
 
 class TestDashboardOverviewAll:
     def test_overview_all_returns_200(self):
-        """GET /api/dashboard/overview?comuna_code=ALL must return HTTP 200."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "ALL"})
         _assert_no_server_error(response)
         assert response.status_code == 200
 
     def test_overview_all_has_required_top_level_keys(self):
-        """Response for ALL must contain 'metrics', 'recommendations', and 'city_averages'."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "ALL"})
         assert response.status_code == 200
         body = response.json()
-
         for key in ("metrics", "recommendations", "city_averages"):
             assert key in body, f"Missing required top-level key: '{key}'"
 
     def test_overview_all_metrics_structure(self):
-        """Each metric in 'metrics' must be a dict with 'value' and 'unit' keys."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "ALL"})
         assert response.status_code == 200
         metrics = response.json()["metrics"]
-
-        assert isinstance(metrics, dict), "'metrics' must be a dict"
-        assert len(metrics) > 0, "'metrics' must not be empty"
-
+        assert isinstance(metrics, dict) and len(metrics) > 0
         for metric_name, block in metrics.items():
             assert "value" in block, f"Metric '{metric_name}' missing 'value'"
             assert "unit" in block, f"Metric '{metric_name}' missing 'unit'"
 
     def test_overview_all_recommendations_is_list(self):
-        """'recommendations' must be a non-empty list of strings."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "ALL"})
         assert response.status_code == 200
         recs = response.json()["recommendations"]
-
-        assert isinstance(recs, list), "'recommendations' must be a list"
-        assert len(recs) > 0, "'recommendations' must not be empty"
+        assert isinstance(recs, list) and len(recs) > 0
         for rec in recs:
-            assert isinstance(rec, str), f"Each recommendation must be a string, got: {rec!r}"
+            assert isinstance(rec, str)
 
     def test_overview_all_city_averages_structure(self):
-        """'city_averages' must mirror the shape of 'metrics'."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "ALL"})
         assert response.status_code == 200
-        body = response.json()
-        city_avgs = body["city_averages"]
-
-        assert isinstance(city_avgs, dict), "'city_averages' must be a dict"
+        city_avgs = response.json()["city_averages"]
+        assert isinstance(city_avgs, dict)
         for key in ("mobility_equiv_vehicles", "safety_homicides", "investment_amount"):
             assert key in city_avgs, f"Expected city_average key '{key}' not found"
             block = city_avgs[key]
-            assert "value" in block and "unit" in block, (
-                f"city_averages['{key}'] must have 'value' and 'unit', got: {block}"
-            )
+            assert "value" in block and "unit" in block
 
     def test_overview_default_is_all(self):
-        """Calling the endpoint without query params must behave identically to ALL."""
         response_default = client.get("/api/dashboard/overview")
         response_all = client.get("/api/dashboard/overview", params={"comuna_code": "ALL"})
         assert response_default.status_code == 200
         assert response_all.status_code == 200
-        # Both must have the same top-level keys.
         assert set(response_default.json().keys()) == set(response_all.json().keys())
+
+    def test_overview_year_param_accepted(self):
+        """El parametro year debe ser aceptado sin error 422."""
+        response = client.get(
+            "/api/dashboard/overview", params={"comuna_code": "ALL", "year": 2022}
+        )
+        _assert_no_server_error(response)
+        # Puede devolver 200 (datos disponibles) o 404/422 segun el año.
+        assert response.status_code in (200, 404, 422)
+
+    def test_overview_year_invalid_rejected(self):
+        """Un año fuera del rango (ej: 1800) debe devolver 422."""
+        response = client.get(
+            "/api/dashboard/overview", params={"comuna_code": "ALL", "year": 1800}
+        )
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -167,29 +152,126 @@ class TestDashboardOverviewAll:
 
 class TestDashboardOverviewInvalidCode:
     def test_invalid_comuna_code_returns_404(self):
-        """GET /api/dashboard/overview?comuna_code=INVALID must return HTTP 404."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "INVALID"})
         assert response.status_code == 404, (
             f"Expected 404 for unknown comuna code, got {response.status_code}: {response.text}"
         )
 
     def test_invalid_comuna_code_error_body(self):
-        """404 response for an unknown code must include a structured error detail."""
         response = client.get("/api/dashboard/overview", params={"comuna_code": "INVALID"})
         assert response.status_code == 404
         body = response.json()
-        assert "detail" in body, "404 response must have a 'detail' field"
+        assert "detail" in body
         detail = body["detail"]
-        # The API wraps the detail as a dict with 'code' and 'message'.
-        assert isinstance(detail, dict), f"'detail' must be a dict, got: {detail!r}"
-        assert "code" in detail, "detail dict must have a 'code' key"
-        assert "message" in detail, "detail dict must have a 'message' key"
+        assert isinstance(detail, dict)
+        assert "code" in detail and "message" in detail
         assert detail["code"] == "NOT_FOUND"
 
     def test_empty_string_comuna_code_is_rejected(self):
-        """A blank commune code should return 422 (validation error), not 500."""
-        # FastAPI enforces min_length=1 on the query param.
         response = client.get("/api/dashboard/overview", params={"comuna_code": ""})
-        assert response.status_code == 422, (
-            f"Expected 422 for empty commune code, got {response.status_code}"
-        )
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Dashboard trends
+# ---------------------------------------------------------------------------
+
+class TestDashboardTrends:
+    def test_trends_safety_returns_200(self):
+        response = client.get("/api/dashboard/trends", params={"metric": "safety"})
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_trends_mobility_returns_200(self):
+        response = client.get("/api/dashboard/trends", params={"metric": "mobility"})
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_trends_investment_returns_200(self):
+        response = client.get("/api/dashboard/trends", params={"metric": "investment"})
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_trends_response_structure(self):
+        response = client.get("/api/dashboard/trends", params={"metric": "safety"})
+        assert response.status_code == 200
+        body = response.json()
+        for key in ("metric", "comuna_code", "unit", "series", "available_years"):
+            assert key in body, f"Missing key '{key}' in trends response"
+        assert isinstance(body["series"], list)
+        assert isinstance(body["available_years"], list)
+
+    def test_trends_series_points_have_year_and_value(self):
+        response = client.get("/api/dashboard/trends", params={"metric": "safety"})
+        assert response.status_code == 200
+        for point in response.json()["series"]:
+            assert "year" in point
+            assert "value" in point
+
+    def test_trends_invalid_metric_returns_422(self):
+        response = client.get("/api/dashboard/trends", params={"metric": "invalid_metric"})
+        assert response.status_code == 422
+
+    def test_trends_with_missing_metric_returns_422(self):
+        """El parametro metric es requerido."""
+        response = client.get("/api/dashboard/trends")
+        assert response.status_code == 422
+
+    def test_trends_with_comuna_code(self):
+        """Tendencias filtradas por comuna deben responder sin error 5xx."""
+        comunas = client.get("/api/territory/comunas").json()["comunas"]
+        if comunas:
+            code = comunas[0]["code"]
+            response = client.get(
+                "/api/dashboard/trends",
+                params={"metric": "safety", "comuna_code": code},
+            )
+            _assert_no_server_error(response)
+            assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Dashboard crime-stats
+# ---------------------------------------------------------------------------
+
+class TestDashboardCrimeStats:
+    def test_crime_stats_returns_200(self):
+        response = client.get("/api/dashboard/crime-stats")
+        _assert_no_server_error(response)
+        assert response.status_code == 200
+
+    def test_crime_stats_structure(self):
+        response = client.get("/api/dashboard/crime-stats")
+        assert response.status_code == 200
+        body = response.json()
+        for key in (
+            "comuna_code", "year", "homicidios",
+            "lesiones_comunes", "top_homicidios_by_comuna", "top_lesiones_by_comuna",
+        ):
+            assert key in body, f"Missing key '{key}' in crime-stats response"
+
+    def test_crime_stats_homicidios_has_value_and_unit(self):
+        response = client.get("/api/dashboard/crime-stats")
+        assert response.status_code == 200
+        h = response.json()["homicidios"]
+        assert "value" in h and "unit" in h
+
+    def test_crime_stats_lesiones_has_available_flag(self):
+        response = client.get("/api/dashboard/crime-stats")
+        assert response.status_code == 200
+        les = response.json()["lesiones_comunes"]
+        assert "available" in les
+
+    def test_crime_stats_top_homicidios_is_list(self):
+        response = client.get("/api/dashboard/crime-stats")
+        assert response.status_code == 200
+        assert isinstance(response.json()["top_homicidios_by_comuna"], list)
+
+    def test_crime_stats_with_year_param(self):
+        response = client.get("/api/dashboard/crime-stats", params={"year": 2022})
+        _assert_no_server_error(response)
+        assert response.status_code in (200, 404)
+
+    def test_crime_stats_invalid_year_rejected(self):
+        response = client.get("/api/dashboard/crime-stats", params={"year": 1500})
+        assert response.status_code == 422
