@@ -8,6 +8,7 @@ pandas==2.2.3
 requests==2.32.3
 cachetools==5.5.0
 python-dateutil==2.9.0.post0
+apscheduler==3.10.4
 
 # Testing
 pytest==8.3.5
