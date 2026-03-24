@@ -1,71 +1,11 @@
 import 'leaflet/dist/leaflet.css'
-import { useState } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet'
-import type { Layer, PathOptions } from 'leaflet'
+import type L from 'leaflet'
+import type { Layer, Path, PathOptions } from 'leaflet'
 import type { Feature, FeatureCollection } from 'geojson'
 
-// ── Approximate GeoJSON polygons for Medellín's 16 comunas ──────────────────
-// Rectangles derived from the canonical tile-grid layout:
-//  Col →  0          1          2          3          4
-//  Row 0:                      [04]       [02]       [01]
-//  Row 1: [07]       [05]      [06]       [03]
-//  Row 2: [13]       [12]      [11]       [10]       [08]
-//  Row 3:            [16]      [15]                  [09]
-//  Row 4:                                            [14]
-//
-// col_lon = -75.652 + col * 0.026   |   row_lat = 6.355 - row * 0.038
-// half-widths: dlon=0.012, dlat=0.017
-// Coordinates in GeoJSON order: [longitude, latitude]
-
-type ComunaMeta = { code: string; name: string; col: number; row: number }
-
-const META: ComunaMeta[] = [
-  { code: '01', name: 'Popular',            col: 4, row: 0 },
-  { code: '02', name: 'Santa Cruz',         col: 3, row: 0 },
-  { code: '03', name: 'Manrique',           col: 3, row: 1 },
-  { code: '04', name: 'Aranjuez',           col: 2, row: 0 },
-  { code: '05', name: 'Castilla',           col: 1, row: 1 },
-  { code: '06', name: 'Doce de Octubre',    col: 2, row: 1 },
-  { code: '07', name: 'Robledo',            col: 0, row: 1 },
-  { code: '08', name: 'Villa Hermosa',      col: 4, row: 2 },
-  { code: '09', name: 'Buenos Aires',       col: 4, row: 3 },
-  { code: '10', name: 'La Candelaria',      col: 3, row: 2 },
-  { code: '11', name: 'Laureles-Estadio',   col: 2, row: 2 },
-  { code: '12', name: 'La América',         col: 1, row: 2 },
-  { code: '13', name: 'San Javier',         col: 0, row: 2 },
-  { code: '14', name: 'El Poblado',         col: 4, row: 4 },
-  { code: '15', name: 'Guayabal',           col: 2, row: 3 },
-  { code: '16', name: 'Belén',              col: 1, row: 3 },
-]
-
-const DLON = 0.012
-const DLAT = 0.017
-
-function buildGeoJSON(): FeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: META.map(({ code, name, col, row }): Feature => {
-      const lon = -75.652 + col * 0.026
-      const lat =  6.355 - row * 0.038
-      return {
-        type: 'Feature',
-        properties: { code, name },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [[
-            [lon - DLON, lat + DLAT],
-            [lon + DLON, lat + DLAT],
-            [lon + DLON, lat - DLAT],
-            [lon - DLON, lat - DLAT],
-            [lon - DLON, lat + DLAT],
-          ]],
-        },
-      }
-    }),
-  }
-}
-
-const COMUNAS_GEOJSON = buildGeoJSON()
+type FeatureLayer = Path & { feature?: Feature }
 
 // ── Color interpolation ──────────────────────────────────────────────────────
 type RGB = [number, number, number]
@@ -98,6 +38,19 @@ type Props = {
 export default function MedellinMap({ data, selected, onSelect }: Props) {
   const [metric, setMetric] = useState<MetricType>('mobility')
   const [hovered, setHovered] = useState<{ name: string; value: number | undefined } | null>(null)
+  const [geoData, setGeoData] = useState<FeatureCollection | null>(null)
+  const geoRef = useRef<L.GeoJSON | null>(null)
+
+  // Load real GeoJSON boundaries from public/comunas.geojson
+  useEffect(() => {
+    fetch('/comunas.geojson')
+      .then(r => r.json())
+      .then((fc: FeatureCollection) => setGeoData(fc))
+      .catch(() => {
+        // Fallback: empty feature collection
+        console.warn('Failed to load comunas.geojson')
+      })
+  }, [])
 
   const values = metric === 'mobility' ? data.mobility : data.safety
 
@@ -105,14 +58,32 @@ export default function MedellinMap({ data, selected, onSelect }: Props) {
   const minVal = nums.length ? Math.min(...nums) : 0
   const maxVal = nums.length ? Math.max(...nums) : 1
 
-  function getColor(code: string): string {
+  const getColor = useCallback((code: string): string => {
     const val = values[code]
     if (val === undefined || !Number.isFinite(val)) return '#1e2030'
     const t = maxVal === minVal ? 0.5 : (val - minVal) / (maxVal - minVal)
     return rgbLerp(PALETTE[metric].low, PALETTE[metric].high, t)
-  }
+  }, [values, minVal, maxVal, metric])
 
-  function styleFeature(feature?: Feature): PathOptions {
+  // Re-style existing layers instead of remounting the entire GeoJSON
+  useEffect(() => {
+    const layer = geoRef.current
+    if (!layer) return
+    layer.eachLayer((l) => {
+      const leafletLayer = l as FeatureLayer
+      const code = leafletLayer.feature?.properties?.code as string | undefined
+      if (!code) return
+      const isSel = selected === code
+      leafletLayer.setStyle({
+        fillColor:   getColor(code),
+        fillOpacity: isSel ? 1.0 : 0.75,
+        color:       isSel ? '#FFB347' : '#ffffff44',
+        weight:      isSel ? 3 : 1,
+      })
+    })
+  }, [values, selected, metric, getColor])
+
+  const styleFeature = useCallback((feature?: Feature): PathOptions => {
     const code = (feature?.properties?.code ?? '') as string
     const isSel = selected === code
     return {
@@ -121,37 +92,27 @@ export default function MedellinMap({ data, selected, onSelect }: Props) {
       color:       isSel ? '#FFB347' : '#ffffff44',
       weight:      isSel ? 3 : 1,
     }
-  }
+  }, [selected, getColor])
 
-  function onEachFeature(feature: Feature, layer: Layer) {
+  const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const code = feature.properties?.code as string
     const name = feature.properties?.name as string
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const l = layer as any
+    const l = layer as FeatureLayer
 
     l.on({
       mouseover() {
         l.setStyle({ fillOpacity: 1.0, weight: 2, color: '#ffffffaa' })
-        setHovered({ name, value: values[code] })
+        setHovered({ name, value: data.mobility[code] ?? data.safety[code] })
       },
       mouseout() {
-        const isSel = selected === code
-        l.setStyle({
-          fillOpacity: isSel ? 1.0 : 0.75,
-          weight:      isSel ? 3 : 1,
-          color:       isSel ? '#FFB347' : '#ffffff44',
-        })
         setHovered(null)
       },
       click() { onSelect(code) },
     })
-  }
+  }, [data, onSelect])
 
   const metricLabel = metric === 'mobility' ? 'Flujo vehicular' : 'Homicidios'
-
-  // key forces GeoJSON layer remount when metric or values change
-  const geoKey = `${metric}-${selected}-${JSON.stringify(values)}`
 
   return (
     <div className="mapPanel">
@@ -185,12 +146,14 @@ export default function MedellinMap({ data, selected, onSelect }: Props) {
             subdomains="abcd"
             maxZoom={19}
           />
-          <GeoJSON
-            key={geoKey}
-            data={COMUNAS_GEOJSON}
-            style={styleFeature}
-            onEachFeature={onEachFeature}
-          />
+          {geoData && (
+            <GeoJSON
+              ref={geoRef}
+              data={geoData}
+              style={styleFeature}
+              onEachFeature={onEachFeature}
+            />
+          )}
         </MapContainer>
       </div>
 

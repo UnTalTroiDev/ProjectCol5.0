@@ -15,13 +15,13 @@ from ..utils.normalize import norm_key, normalize_code
 logger = logging.getLogger(__name__)
 
 
-def get_imcv(year: Optional[int] = None, comuna_code: Optional[str] = None) -> Dict[str, Any]:
+async def get_imcv(year: Optional[int] = None, comuna_code: Optional[str] = None) -> Dict[str, Any]:
     """
     Indice Multidimensional Calidad de Vida por comuna y dimension.
 
     Columnas esperadas: AÑO, CODIGO_COMUNA, NOMBRE_COMUNA, DIMENSION, INDICADOR, VALOR
     """
-    df = load_quality_imcv()
+    df = await load_quality_imcv()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "by_comuna": [], "by_dimension": [], "series": []}
 
@@ -98,15 +98,15 @@ def get_imcv(year: Optional[int] = None, comuna_code: Optional[str] = None) -> D
         "by_comuna": by_comuna,
         "by_dimension": by_dimension,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-002-09-000041/indice_multidimensional_encuesta_calidad_de_vida.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-002-09-000041/indice_multidimensional_encuesta_calidad_de_vida.csv",
     }
 
 
-def get_siniestros_viales(year: Optional[int] = None, comuna_code: Optional[str] = None) -> Dict[str, Any]:
+async def get_siniestros_viales(year: Optional[int] = None, comuna_code: Optional[str] = None) -> Dict[str, Any]:
     """
     Victimas en incidentes viales por año, tipo de victima y comuna.
     """
-    df = load_mobility_siniestros()
+    df = await load_mobility_siniestros()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "by_type": [], "by_comuna": [], "series": []}
 
@@ -191,5 +191,5 @@ def get_siniestros_viales(year: Optional[int] = None, comuna_code: Optional[str]
         "by_severity": by_severity,
         "by_comuna": by_comuna,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-023-25-000360/Mede_Victimas_inci.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-023-25-000360/Mede_Victimas_inci.csv",
     }

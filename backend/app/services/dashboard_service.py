@@ -27,9 +27,11 @@ from ..utils.normalize import (
 
 logger = logging.getLogger(__name__)
 
+import asyncio
+
 _SUMMARY_CACHE_TTL_SECONDS = 60 * 20  # 20 minutos.
-# maxsize=8 para acomodar distintas combinaciones de año por metrica.
 _summary_cache: TTLCache[str, dict] = TTLCache(maxsize=8, ttl=_SUMMARY_CACHE_TTL_SECONDS)
+_summary_lock = asyncio.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -363,22 +365,28 @@ def _build_recommendations(
 # Summary cache (raw DataFrames, cacheado por "año" o "latest")
 # ---------------------------------------------------------------------------
 
-@cached(_summary_cache)
-def _get_all_summaries(year_key: str = "latest") -> Dict[str, Any]:
+async def _get_all_summaries(year_key: str = "latest") -> Dict[str, Any]:
     """
     Carga y cachea los DataFrames crudos de todos los datasets.
     year_key es "latest" o un string del año (ej: "2022") para que
     TTLCache lo use como clave.
     """
+    async with _summary_lock:
+        cached_val = _summary_cache.get(year_key)
+    if cached_val is not None:
+        return cached_val
+
     logger.info("Cache miss: cargando todos los datasets desde MEData (year_key=%s)...", year_key)
     t0 = time.monotonic()
 
     year: Optional[int] = None if year_key == "latest" else int(year_key)
 
-    mobility_df = load_mobility_aforos()
-    safety_df = load_safety_homicidios()
-    investment_df = load_investment_por_comuna()
-    lesiones_df = load_safety_lesiones()
+    mobility_df, safety_df, investment_df, lesiones_df = await asyncio.gather(
+        load_mobility_aforos(),
+        load_safety_homicidios(),
+        load_investment_por_comuna(),
+        load_safety_lesiones(),
+    )
 
     mobility_latest_year, mobility_by = _compute_mobility_by_comuna(mobility_df, year=year)
     safety_latest_year, safety_by = _compute_safety_by_comuna(safety_df, year=year)
@@ -395,20 +403,23 @@ def _get_all_summaries(year_key: str = "latest") -> Dict[str, Any]:
     elapsed = time.monotonic() - t0
     logger.info("_get_all_summaries completado en %.2fs", elapsed)
 
-    return {
+    result = {
         "mobility": {"latest_year": mobility_latest_year, "by": mobility_by},
         "safety": {"latest_year": safety_latest_year, "by": safety_by},
         "investment": {"latest_year": investment_latest_year, "by": investment_by},
         "lesiones": lesiones_result,
     }
+    async with _summary_lock:
+        _summary_cache[year_key] = result
+    return result
 
 
-def _get_available_years() -> Dict[str, List[int]]:
-    """Devuelve los años disponibles por metrica sin filtrar."""
-    mobility_df = load_mobility_aforos()
-    safety_df = load_safety_homicidios()
-    investment_df = load_investment_por_comuna()
-
+def _extract_available_years(
+    mobility_df: pd.DataFrame,
+    safety_df: pd.DataFrame,
+    investment_df: pd.DataFrame,
+) -> Dict[str, List[int]]:
+    """Extracts available years from pre-loaded DataFrames (no async IO)."""
     try:
         mob_year_col = resolve_year_column(mobility_df)
         mob_years = available_years_in_column(mobility_df, mob_year_col)
@@ -419,9 +430,9 @@ def _get_available_years() -> Dict[str, List[int]]:
         saf_date_col = resolve_column(
             safety_df, ["FECHA_HECHO", "fecha_hecho", "FECHA"], label="fecha_hecho"
         )
-        safety_df = safety_df.copy()
-        safety_df[saf_date_col] = pd.to_datetime(safety_df[saf_date_col], errors="coerce", dayfirst=True)
-        saf_years = sorted(safety_df[saf_date_col].dt.year.dropna().unique().astype(int).tolist())
+        safety_copy = safety_df.copy()
+        safety_copy[saf_date_col] = pd.to_datetime(safety_copy[saf_date_col], errors="coerce", dayfirst=True)
+        saf_years = sorted(safety_copy[saf_date_col].dt.year.dropna().unique().astype(int).tolist())
     except Exception:
         saf_years = []
 
@@ -442,8 +453,8 @@ def _get_available_years() -> Dict[str, List[int]]:
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_territory_comunas() -> List[Dict[str, Any]]:
-    inv = _get_all_summaries()["investment"]
+async def get_territory_comunas() -> List[Dict[str, Any]]:
+    inv = (await _get_all_summaries())["investment"]
     inv_agg = inv["by"].sort_values("comuna_code")
     return [
         {
@@ -454,13 +465,13 @@ def get_territory_comunas() -> List[Dict[str, Any]]:
     ]
 
 
-def get_dashboard_overview(
+async def get_dashboard_overview(
     comuna_code: str, year: Optional[int] = None
 ) -> OverviewResponse:
     logger.info("get_dashboard_overview: comuna_code=%r year=%r", comuna_code, year)
 
     year_key = "latest" if year is None else str(year)
-    summaries = _get_all_summaries(year_key=year_key)
+    summaries = await _get_all_summaries(year_key=year_key)
 
     mobility_latest_year = summaries["mobility"]["latest_year"]
     safety_latest_year = summaries["safety"]["latest_year"]
@@ -565,7 +576,7 @@ def get_dashboard_overview(
     )
 
 
-def get_dashboard_trends(
+async def get_dashboard_trends(
     metric: str, comuna_code: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -580,11 +591,13 @@ def get_dashboard_trends(
     """
     logger.info("get_dashboard_trends: metric=%r comuna_code=%r", metric, comuna_code)
 
-    mobility_df = load_mobility_aforos()
-    safety_df = load_safety_homicidios()
-    investment_df = load_investment_por_comuna()
+    mobility_df, safety_df, investment_df = await asyncio.gather(
+        load_mobility_aforos(),
+        load_safety_homicidios(),
+        load_investment_por_comuna(),
+    )
 
-    available = _get_available_years()
+    available = _extract_available_years(mobility_df, safety_df, investment_df)
 
     norm_code: Optional[str] = None
     if comuna_code and comuna_code.upper() != "ALL":
@@ -646,7 +659,7 @@ def get_dashboard_trends(
     }
 
 
-def get_crime_stats(
+async def get_crime_stats(
     comuna_code: Optional[str] = None, year: Optional[int] = None
 ) -> Dict[str, Any]:
     """
@@ -656,7 +669,7 @@ def get_crime_stats(
     logger.info("get_crime_stats: comuna_code=%r year=%r", comuna_code, year)
 
     year_key = "latest" if year is None else str(year)
-    summaries = _get_all_summaries(year_key=year_key)
+    summaries = await _get_all_summaries(year_key=year_key)
 
     safety_by = summaries["safety"]["by"]
     safety_year = summaries["safety"]["latest_year"]
@@ -708,7 +721,7 @@ def get_crime_stats(
     }
 
 
-def get_dashboard_compare(
+async def get_dashboard_compare(
     comunas: List[str], year: Optional[int] = None
 ) -> Dict[str, Any]:
     """
@@ -720,7 +733,7 @@ def get_dashboard_compare(
     norm_codes = [normalize_code(c) for c in comunas if normalize_code(c)]
 
     year_key = "latest" if year is None else str(year)
-    summaries = _get_all_summaries(year_key=year_key)
+    summaries = await _get_all_summaries(year_key=year_key)
 
     mobility_by = summaries["mobility"]["by"]
     safety_by = summaries["safety"]["by"]

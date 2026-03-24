@@ -29,7 +29,7 @@ CRIME_TYPES_ES = [
 ]
 
 
-def get_criminalidad_consolidada(
+async def get_criminalidad_consolidada(
     year: Optional[int] = None,
     crime_type: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -40,7 +40,7 @@ def get_criminalidad_consolidada(
         year: Filtrar por año. None = todos los años disponibles.
         crime_type: Filtrar por tipo de delito (ej: 'HOMICIDIO'). None = todos.
     """
-    df = load_security_criminalidad()
+    df = await load_security_criminalidad()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible en MEData.", "series": [], "by_type": []}
 
@@ -115,13 +115,13 @@ def get_criminalidad_consolidada(
         "filtered_crime_type": crime_type,
         "by_type": by_type,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-027-23-000306/consolidado_cantidad_casos_criminalidad_por_anio_mes.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-027-23-000306/consolidado_cantidad_casos_criminalidad_por_anio_mes.csv",
     }
 
 
-def get_violencia_intrafamiliar(year: Optional[int] = None) -> Dict[str, Any]:
+async def get_violencia_intrafamiliar(year: Optional[int] = None) -> Dict[str, Any]:
     """Solicitudes de medidas de proteccion por violencia intrafamiliar por comuna y año."""
-    df = load_social_violencia_intrafamiliar()
+    df = await load_social_violencia_intrafamiliar()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "by_comuna": [], "series": []}
 
@@ -176,5 +176,5 @@ def get_violencia_intrafamiliar(year: Optional[int] = None) -> Dict[str, Any]:
         "total": float(df["_qty"].sum()),
         "by_comuna": by_comuna,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-027-23-000028/solicitud_de_medidas_de_proteccion_por_violencia_intrafamiliar.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-027-23-000028/solicitud_de_medidas_de_proteccion_por_violencia_intrafamiliar.csv",
     }

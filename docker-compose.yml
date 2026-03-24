@@ -55,32 +55,27 @@ services:
     restart: unless-stopped
 
   # --------------------------------------------------------------------------
-  # Frontend — Vite / React
+  # Frontend — nginx serving production build
   # --------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "${VITE_API_URL:-http://localhost:8000}"
     ports:
-      - "5173:5173"
-    volumes:
-      # Bind-mount source for HMR; node_modules lives inside the container.
-      - ./frontend:/app
-      - /app/node_modules
+      - "5173:80"
     env_file:
       - .env
-    environment:
-      VITE_API_URL: "${VITE_API_URL:-http://localhost:8000}"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - medcity
     healthcheck:
-      test: ["CMD", "node", "-e",
-             "require('http').get('http://localhost:5173', r => process.exit(r.statusCode < 500 ? 0 : 1))"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 10s
     restart: unless-stopped

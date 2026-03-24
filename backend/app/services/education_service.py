@@ -15,14 +15,18 @@ from ..utils.normalize import norm_key, normalize_code, resolve_optional_column
 logger = logging.getLogger(__name__)
 
 
-def get_establecimientos(comuna_code: Optional[str] = None) -> Dict[str, Any]:
+async def get_establecimientos(
+    comuna_code: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> Dict[str, Any]:
     """
     Directorio de establecimientos educativos por comuna.
 
     Columnas esperadas: NOMBRE, CODIGO_DANE, CODIGO_MUNICIPIO, NOMBRE_MUNICIPIO,
     CODIGO_COMUNA, NOMBRE_BARRIO, MODALIDAD, NUMERO_SEDES, NIVEL
     """
-    df = load_education_establecimientos()
+    df = await load_education_establecimientos()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "establecimientos": [], "by_comuna": []}
 
@@ -69,28 +73,34 @@ def get_establecimientos(comuna_code: Optional[str] = None) -> Dict[str, Any]:
         )
         by_modalidad = mod_agg.head(10).to_dict(orient="records")
 
-    # Lista de establecimientos (limitada)
+    # Lista de establecimientos (paginada)
     establecimientos: List[Dict[str, Any]] = []
     keep_cols = [c for c in [name_col, comuna_col, barrio_col, modalidad_col, nivel_col, sedes_col] if c]
+    total = len(df)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    offset = (page - 1) * page_size
     if keep_cols:
-        sample = df[keep_cols].head(200)
-        establecimientos = sample.where(pd.notna(sample), None).to_dict(orient="records")
+        page_df = df[keep_cols].iloc[offset:offset + page_size]
+        establecimientos = page_df.where(pd.notna(page_df), None).to_dict(orient="records")
 
     return {
         "available": True,
-        "total": len(df),
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
         "by_comuna": by_comuna,
         "by_modalidad": by_modalidad,
         "establecimientos": establecimientos,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-011-08-000122/directorio_establecimientos_educativos.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-011-08-000122/directorio_establecimientos_educativos.csv",
     }
 
 
-def get_ambiente_escolar(year: Optional[int] = None) -> Dict[str, Any]:
+async def get_ambiente_escolar(year: Optional[int] = None) -> Dict[str, Any]:
     """
     Indicadores historicos de ambiente escolar (relaciones, comunicacion, participacion).
     """
-    df = load_education_ambiente_escolar()
+    df = await load_education_ambiente_escolar()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "indicadores": [], "series": []}
 
@@ -141,5 +151,5 @@ def get_ambiente_escolar(year: Optional[int] = None) -> Dict[str, Any]:
         "total_registros": len(df),
         "indicadores": indicadores,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-011-08-000068/historico_indicadores_ambiente_escolar.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-011-08-000068/historico_indicadores_ambiente_escolar.csv",
     }
