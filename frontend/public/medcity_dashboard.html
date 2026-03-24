@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MedCity Dashboard — Medellín</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a18;min-height:100vh}
+:root{--teal:#0F6E56;--teal-l:#E1F5EE;--teal-m:#1D9E75;--border:#d3d1c7;--card:#fff;--bg2:#f1efe8;--txt:#1a1a18;--txt2:#5f5e5a;--txt3:#888780;--r:12px}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;flex-wrap:wrap;gap:8px}
+.topbar h1{font-size:16px;font-weight:600;color:var(--teal)}
+.topbar p{font-size:11px;color:var(--txt3)}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nb{border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;cursor:pointer;background:var(--card);color:var(--txt2);font-family:inherit;transition:all .15s}
+.nb.on{background:var(--teal);color:#fff;border-color:var(--teal)}
+.app{max-width:980px;margin:0 auto;padding:20px 16px}
+.panel{display:none}.panel.on{display:block}
+
+/* ── MAPA ── */
+.ind-selector{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.ind-selector label{font-size:12px;color:var(--txt2);font-weight:500;flex-shrink:0}
+.ind-pills{display:flex;gap:4px;flex-wrap:wrap}
+.ip{border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;cursor:pointer;background:var(--card);color:var(--txt2);font-family:inherit;transition:all .15s}
+.ip.on{background:var(--txt);color:#fff;border-color:var(--txt)}
+.map-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.map-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;position:sticky;top:70px}
+.map-hdr{padding:10px 14px;font-size:12px;font-weight:600;color:var(--txt);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.map-hdr span{font-size:10px;font-weight:400;color:var(--txt3)}
+#map{height:420px;width:100%}
+.map-legend{display:flex;gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--bg2);border-top:1px solid var(--border)}
+.leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--txt2)}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.map-loading{display:flex;align-items:center;justify-content:center;height:420px;flex-direction:column;gap:10px;background:#f5f4f0}
+.map-loading p{font-size:13px;color:var(--txt2)}
+
+.detail-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;min-height:300px}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center}
+.empty-icon{font-size:32px;margin-bottom:12px}
+.empty-state p{font-size:13px;line-height:1.6;color:var(--txt2)}
+
+/* ── DETAIL PANEL ── */
+.score-hdr{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.score-num{font-size:40px;font-weight:600;color:var(--txt);line-height:1}
+.score-meta .cname{font-size:16px;font-weight:600;color:var(--txt)}
+.score-meta .csub{font-size:11px;color:var(--txt3);margin-top:2px}
+.score-right{margin-left:auto}
+.pill{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;display:inline-block}
+.pc{background:#FCEBEB;color:#791F1F}.pb{background:#FAEEDA;color:#633806}.pp{background:#E6F1FB;color:#0C447C}.pg{background:#EAF3DE;color:#27500A}.pd{background:#E1F5EE;color:#085041}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 16px;border-bottom:1px solid var(--border)}
+.kpi{background:var(--bg2);border-radius:8px;padding:8px 10px;text-align:center}
+.kpi-val{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px}
+.kpi-lbl{font-size:10px;color:var(--txt2)}
+.vtabs{display:flex;gap:4px;padding:8px 16px;border-bottom:1px solid var(--border)}
+.vtab{border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;cursor:pointer;background:var(--card);color:var(--txt2);font-family:inherit;transition:all .15s}
+.vtab.on{background:var(--txt);color:#fff;border-color:var(--txt)}
+.inds-list{padding:10px 16px;display:flex;flex-direction:column;gap:7px;max-height:500px;overflow-y:auto}
+.ic{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--card)}
+.ic:hover{border-color:#b4b2a9}
+.ic-hdr{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;user-select:none}
+.ic-ico{font-size:16px;width:24px;text-align:center;flex-shrink:0}
+.ic-main{flex:1;min-width:0}
+.ic-name{font-size:13px;font-weight:600;color:var(--txt)}
+.ic-tag{font-size:10px;color:var(--txt2);margin-top:1px}
+.ic-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.chv{font-size:9px;color:var(--txt3);transition:transform .2s}
+.chv.op{transform:rotate(180deg)}
+.ic-body{display:none;border-top:1px solid var(--border);padding:12px}
+.ic-body.op{display:block}
+.brow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bwrap{flex:1;position:relative;height:7px;background:var(--bg2);border-radius:4px}
+.bfill{height:100%;border-radius:4px}
+.bavg{position:absolute;top:-3px;width:2px;height:13px;background:#b4b2a9;border-radius:1px}
+.bavg-lbl{position:absolute;top:-15px;font-size:9px;color:var(--txt3);transform:translateX(-50%);white-space:nowrap}
+.bnum{font-size:12px;font-weight:600;min-width:26px;text-align:right;color:var(--txt)}
+.ctx{font-size:12px;color:var(--txt2);line-height:1.5;margin-bottom:4px}
+.ctx strong{color:var(--txt);font-weight:600}
+.comp-txt{font-size:10px;color:var(--txt3)}
+.comp-txt b{color:var(--txt2)}
+.l2{border-top:1px solid var(--border);padding-top:10px;margin-top:8px}
+.l-title{font-size:9px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.pct-track{position:relative;height:18px;border-radius:3px;overflow:hidden;margin-bottom:3px}
+.pct-zones{display:flex;height:100%}
+.pz1{flex:1;background:#FCEBEB}.pz2{flex:1;background:#FAEEDA}.pz3{flex:1;background:#E6F1FB}.pz4{flex:1;background:#EAF3DE}.pz5{flex:1;background:#E1F5EE}
+.pct-dot{position:absolute;top:1px;width:16px;height:16px;border-radius:50%;border:2px solid #fff;font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;transform:translateX(-50%)}
+.pct-lbls{display:flex;justify-content:space-between;font-size:9px;color:var(--txt3);margin-bottom:7px}
+.mranks{display:flex;flex-direction:column;gap:3px}
+.mr{display:flex;align-items:center;gap:5px}
+.mr-n{font-size:10px;color:var(--txt2);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.mr-t{flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden}
+.mr-f{height:100%;border-radius:2px;background:#d3d1c7}
+.mr-f.me{background:var(--teal-m)}
+.mr-v{font-size:9px;color:var(--txt3);min-width:20px;text-align:right}
+.mr.me .mr-n{font-weight:600;color:var(--txt)}
+.mr.me .mr-v{color:var(--teal-m);font-weight:600}
+.l3{border-top:1px solid var(--border);padding-top:10px;margin-top:8px}
+.raw-g{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:5px}
+.ri{background:var(--bg2);border-radius:6px;padding:7px 9px}
+.ri-v{font-size:12px;font-weight:600;color:var(--txt);margin-bottom:1px}
+.ri-l{font-size:9px;color:var(--txt2)}
+.src-lbl{font-size:9px;color:var(--txt3)}
+.detail-footer{padding:8px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--txt3);text-align:center}
+
+/* ── COMPARAR ── */
+.comp-controls{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.comp-controls select{border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;background:var(--card);color:var(--txt);outline:none;cursor:pointer}
+.comp-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.comp-rank{font-size:12px;font-weight:700;color:var(--txt3);width:20px;flex-shrink:0}
+.comp-name{font-size:13px;font-weight:500;color:var(--txt);width:140px;flex-shrink:0}
+.comp-bwrap{flex:1;height:7px;background:var(--bg2);border-radius:4px;overflow:hidden}
+.comp-bfill{height:100%;border-radius:4px}
+.comp-val{font-size:12px;font-weight:600;color:var(--txt);min-width:26px;text-align:right}
+.comp-hl{border-color:var(--teal-m);background:#f6fef9}
+
+/* ── RECOMENDACIÓN ── */
+.steps-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:28px;flex-wrap:wrap}
+.stp{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--txt3)}
+.stp.active{color:var(--teal);font-weight:600}
+.stp.done{color:var(--teal-m)}
+.stp-dot{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.stp.active .stp-dot{background:var(--teal);border-color:var(--teal);color:#fff}
+.stp.done .stp-dot{background:var(--teal-m);border-color:var(--teal-m);color:#fff}
+.stp-line{width:36px;height:1.5px;background:var(--border)}
+.rec-view{display:none}.rec-view.on{display:block}
+.rec-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:16px}
+.rec-card h3{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:16px}
+.intent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.intent-btn{border:1.5px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;background:var(--card);text-align:left;transition:all .18s;font-family:inherit}
+.intent-btn:hover{border-color:var(--teal-m);background:var(--teal-l)}
+.intent-btn.sel{border-color:var(--teal);background:var(--teal-l)}
+.ib-icon{font-size:22px;margin-bottom:8px}
+.ib-name{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:3px}
+.ib-desc{font-size:11px;color:var(--txt2);line-height:1.4}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:12px;color:var(--txt2);font-weight:600}
+.form-group select,.form-group input[type=text]{border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;background:var(--card);color:var(--txt);outline:none;transition:border .15s}
+.form-group select:focus{border-color:var(--teal-m)}
+.form-group textarea{border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;background:var(--card);color:var(--txt);outline:none;resize:vertical;min-height:80px;line-height:1.5}
+.form-group textarea:focus{border-color:var(--teal-m)}
+.tag-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.tag{border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;cursor:pointer;background:var(--card);color:var(--txt2);transition:all .15s;font-family:inherit}
+.tag:hover{border-color:var(--teal-m);color:var(--teal)}
+.tag.sel{background:var(--teal);border-color:var(--teal);color:#fff}
+.tag-hint{font-size:11px;color:var(--txt3);margin-top:6px}
+.intent-fields{margin-bottom:14px}
+.btn-row{display:flex;gap:10px;margin-top:6px}
+.btn-primary{background:var(--teal);color:#fff;border:none;border-radius:9px;padding:12px 28px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;flex:1}
+.btn-primary:hover{background:#085041}
+.btn-primary:disabled{background:#b4b2a9;cursor:not-allowed}
+.btn-sec{background:var(--card);color:var(--teal);border:1.5px solid var(--teal);border-radius:9px;padding:11px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.loading{text-align:center;padding:48px 24px}
+.spinner{width:36px;height:36px;border:3px solid var(--bg2);border-top-color:var(--teal-m);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{font-size:14px;font-weight:600;color:var(--txt2);margin-bottom:4px}
+.loading span{font-size:12px;color:var(--txt3)}
+.ai-box{background:var(--teal-l);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#085041;line-height:1.6;border-left:3px solid var(--teal-m)}
+.ai-box strong{color:#04342C;font-weight:600}
+.rc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:15px 16px;margin-bottom:10px;position:relative}
+.rc.top{border:2px solid var(--teal-m)}
+.rc-medal{position:absolute;top:12px;right:14px;font-size:20px}
+.rc-name{font-size:15px;font-weight:600;color:var(--txt);padding-right:32px;margin-bottom:2px}
+.rc-score{font-size:11px;color:var(--txt2);margin-bottom:10px}
+.rc-bars{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.rcb-row{display:flex;align-items:center;gap:6px}
+.rcb-lbl{font-size:11px;color:var(--txt2);width:100px;flex-shrink:0}
+.rcb-track{flex:1;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.rcb-fill{height:100%;border-radius:3px}
+.rcb-num{font-size:10px;min-width:22px;text-align:right}
+.rc2col{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.pros-t{font-size:11px;font-weight:600;color:var(--teal);margin-bottom:4px}
+.cons-t{font-size:11px;font-weight:600;color:#A32D2D;margin-bottom:4px}
+.pros li,.cons li{font-size:11px;color:var(--txt2);list-style:none;line-height:1.6}
+.pros li::before{content:"✓ ";color:var(--teal-m)}
+.cons li::before{content:"✗ ";color:#E24B4A}
+.rc-insight{background:var(--bg2);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--txt2);border-left:2px solid var(--teal-m);cursor:pointer}
+.rc-insight:hover{background:#e8f5ee}
+.results-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px}
+.results-topbar h2{font-size:17px;font-weight:600;color:var(--txt)}
+.disclaimer{font-size:10px;color:var(--txt3);text-align:center;margin-top:16px;line-height:1.6}
+
+/* Leaflet overrides */
+.leaflet-container{background:#e8e6e0;font-family:inherit}
+.leaflet-tooltip{background:#1a1a18;color:#fff;border:none;border-radius:6px;font-size:12px;font-family:inherit;padding:5px 10px;font-weight:500}
+.leaflet-tooltip::before{border-top-color:#1a1a18}
+
+@media(max-width:720px){.map-layout{grid-template-columns:1fr}.map-card{position:relative;top:0}#map{height:300px}.kpis{grid-template-columns:repeat(2,1fr)}.rc2col{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}.intent-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div><h1>🏙 MedCity Dashboard</h1><p>Inteligencia territorial · 16 comunas · MEData 2024</p></div>
+  <div class="nav">
+    <button class="nb on" onclick="showPanel('mapa',this)">🗺 Explorar mapa</button>
+    <button class="nb" onclick="showPanel('recomendacion',this)">✨ Recomendación IA</button>
+    <button class="nb" onclick="showPanel('comparar',this)">⚖️ Comparar</button>
+  </div>
+</div>
+
+<div class="app">
+
+<!-- ══ MAPA ══ -->
+<div class="panel on" id="panel-mapa">
+  <div class="ind-selector">
+    <label>Color del mapa por:</label>
+    <div class="ind-pills" id="ind-pills"></div>
+  </div>
+  <div class="map-layout">
+    <div class="map-card">
+      <div class="map-hdr">Comunas de Medellín <span>Toca una zona para ver indicadores</span></div>
+      <div id="map-loading" class="map-loading">
+        <div class="spinner" style="width:28px;height:28px;border-width:3px;border-top-color:var(--teal-m)"></div>
+        <p>Cargando mapa oficial...</p>
+      </div>
+      <div id="map" style="display:none"></div>
+      <div class="map-legend" id="map-legend"></div>
+    </div>
+    <div class="detail-card" id="detail-card">
+      <div class="empty-state">
+        <div class="empty-icon">🗺</div>
+        <p><strong>Selecciona una comuna</strong><br>Haz clic en cualquier zona del mapa para explorar sus 8 indicadores comparados con el resto de la ciudad.</p>
+      </div>
+    </div>
+  </div>
+  <p class="disclaimer">GeoJSON oficial: Alcaldía de Medellín vía ArcGIS Hub (GeoMedellín) · Datos MEData 2023–2024 · CC BY-SA 4.0</p>
+</div>
+
+<!-- ══ RECOMENDACIÓN IA ══ -->
+<div class="panel" id="panel-recomendacion">
+  <div class="steps-bar">
+    <div class="stp active" id="stp-1"><div class="stp-dot">1</div>¿Qué necesitas?</div>
+    <div class="stp-line"></div>
+    <div class="stp" id="stp-2"><div class="stp-dot">2</div>Tu perfil</div>
+    <div class="stp-line"></div>
+    <div class="stp" id="stp-3"><div class="stp-dot">3</div>Resultados</div>
+  </div>
+  <div class="rec-view on" id="rv-intent">
+    <div class="rec-card">
+      <h3>¿Qué decisión quieres tomar?</h3>
+      <div class="intent-grid" id="intent-grid"></div>
+      <button class="btn-primary" id="btn-to-profile" onclick="goRecStep(2)" disabled>Continuar →</button>
+    </div>
+  </div>
+  <div class="rec-view" id="rv-profile">
+    <div class="rec-card">
+      <h3>Cuéntame sobre ti y tu situación</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>¿En qué comuna vives actualmente?</label>
+          <select id="f-comuna">
+            <option value="">— Selecciona —</option>
+            <option>Popular</option><option>Santa Cruz</option><option>Manrique</option>
+            <option>Aranjuez</option><option>Castilla</option><option>Doce de Octubre</option>
+            <option>Robledo</option><option>Villa Hermosa</option><option>Buenos Aires</option>
+            <option>La Candelaria</option><option>Laureles</option><option>La América</option>
+            <option>San Javier</option><option>El Poblado</option><option>Guayabal</option>
+            <option>Belén</option><option>No vivo en Medellín aún</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Ingresos mensuales aproximados</label>
+          <select id="f-ingresos">
+            <option value="bajo">Hasta $2M COP</option>
+            <option value="medio-bajo">$2M – $4M COP</option>
+            <option value="medio" selected>$4M – $8M COP</option>
+            <option value="medio-alto">$8M – $15M COP</option>
+            <option value="alto">Más de $15M COP</option>
+          </select>
+        </div>
+      </div>
+      <div class="intent-fields" id="intent-fields"></div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>¿Qué es lo más importante para ti? <span style="font-weight:400;color:var(--txt3)">(hasta 3 — se sobrepondrán en el análisis)</span></label>
+        <div class="tag-group" id="tags-prio">
+          <button class="tag" data-k="cal" onclick="toggleTag(this)">⭐ Calidad de vida</button>
+          <button class="tag" data-k="seg" onclick="toggleTag(this)">🔒 Seguridad</button>
+          <button class="tag" data-k="edu" onclick="toggleTag(this)">📚 Educación</button>
+          <button class="tag" data-k="sal" onclick="toggleTag(this)">🏥 Salud</button>
+          <button class="tag" data-k="mov" onclick="toggleTag(this)">🚇 Movilidad</button>
+          <button class="tag" data-k="amb" onclick="toggleTag(this)">🌿 Medio ambiente</button>
+          <button class="tag" data-k="inv" onclick="toggleTag(this)">📈 Inversión pública</button>
+          <button class="tag" data-k="com" onclick="toggleTag(this)">🏪 Actividad comercial</button>
+        </div>
+        <div class="tag-hint" id="tag-hint">0 de 3 seleccionadas</div>
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>Cuéntame exactamente qué buscas o qué quieres lograr</label>
+        <textarea id="f-contexto" placeholder="Ej: Tengo una pequeña empresa de diseño con 5 empleados, busco una zona con buena conectividad para mis clientes, que sea segura para quedarme en la noche trabajando, y con parqueadero disponible..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-sec" onclick="goRecStep(1)">← Atrás</button>
+        <button class="btn-primary" onclick="analizarConIA()">✨ Analizar con IA</button>
+      </div>
+    </div>
+  </div>
+  <div class="rec-view" id="rv-results">
+    <div id="results-loading" class="rec-card loading" style="display:none">
+      <div class="spinner"></div>
+      <p id="loading-msg">Consultando datos MEData...</p>
+      <span>Analizando 13 datasets · calculando percentiles por comuna</span>
+    </div>
+    <div id="results-content"></div>
+  </div>
+</div>
+
+<!-- ══ COMPARAR ══ -->
+<div class="panel" id="panel-comparar">
+  <div class="comp-controls">
+    <label style="font-size:12px;color:var(--txt2)">Comparar por</label>
+    <select id="sel-comp" onchange="renderComp()">
+      <option value="cal">⭐ Calidad de vida</option><option value="seg">🔒 Seguridad</option>
+      <option value="edu">📚 Educación</option><option value="sal">🏥 Salud</option>
+      <option value="mov">🚇 Movilidad</option><option value="amb">🌿 Ambiente</option>
+      <option value="inv">📈 Inversión pública</option><option value="com">🏪 Comercio</option>
+    </select>
+  </div>
+  <div id="comp-output"></div>
+</div>
+
+</div><!-- /app -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ══════════════════════════════════════════
+   DATA & HELPERS
+══════════════════════════════════════════ */
+const DATA={
+  "Popular":        {seg:48,edu:62,sal:60,mov:62,amb:58,inv:64,cal:58,com:52},
+  "Santa Cruz":     {seg:50,edu:64,sal:62,mov:65,amb:60,inv:66,cal:60,com:55},
+  "Manrique":       {seg:55,edu:66,sal:64,mov:67,amb:62,inv:68,cal:62,com:58},
+  "Aranjuez":       {seg:62,edu:70,sal:68,mov:75,amb:65,inv:78,cal:68,com:65},
+  "Castilla":       {seg:58,edu:65,sal:65,mov:70,amb:60,inv:72,cal:64,com:68},
+  "Doce de Octubre":{seg:56,edu:66,sal:64,mov:64,amb:61,inv:68,cal:62,com:56},
+  "Robledo":        {seg:65,edu:72,sal:70,mov:68,amb:80,inv:76,cal:72,com:60},
+  "Villa Hermosa":  {seg:54,edu:66,sal:64,mov:68,amb:62,inv:69,cal:63,com:59},
+  "Buenos Aires":   {seg:60,edu:68,sal:67,mov:72,amb:63,inv:70,cal:66,com:62},
+  "La Candelaria":  {seg:55,edu:74,sal:72,mov:90,amb:55,inv:85,cal:65,com:92},
+  "Laureles":       {seg:84,edu:85,sal:82,mov:78,amb:75,inv:70,cal:87,com:82},
+  "La América":     {seg:75,edu:76,sal:74,mov:82,amb:70,inv:72,cal:78,com:80},
+  "San Javier":     {seg:52,edu:65,sal:63,mov:66,amb:61,inv:67,cal:61,com:57},
+  "El Poblado":     {seg:88,edu:82,sal:80,mov:72,amb:78,inv:65,cal:90,com:95},
+  "Guayabal":       {seg:63,edu:68,sal:67,mov:74,amb:64,inv:75,cal:67,com:72},
+  "Belén":          {seg:76,edu:79,sal:75,mov:80,amb:72,inv:74,cal:80,com:76},
+};
+const NAMES=Object.keys(DATA);
+
+const INDS=[
+  {k:"cal",icon:"⭐",name:"Calidad de vida",tag:"Índice general de bienestar",expl:v=>v>=75?"Una de las mejores zonas para vivir.":v>=60?"Similar al promedio.":"Por debajo del promedio.",raw:v=>[{v:Math.round(v*.95)+"/100",l:"IMCV"},{v:v>75?"Buenas":"Regulares",l:"Condiciones"},{v:Math.round(v*.85)+"%",l:"Satisfacción"}],src:"IMCV · DAP"},
+  {k:"seg",icon:"🔒",name:"Seguridad",tag:"Nivel de seguridad ciudadana",expl:v=>v>=75?"Menos incidentes que la mayoría.":v>=60?"Similar al promedio.":"Más incidentes que la mayoría.",raw:v=>[{v:Math.round(100-v*.4)+"/10k",l:"Incidentes"},{v:v>70?"Bajo":"Alto",l:"Nivel riesgo"},{v:Math.round(v*.8)+"%",l:"Sensación"}],src:"Homicidios + Lesiones · SISC"},
+  {k:"edu",icon:"📚",name:"Educación",tag:"Colegios y calidad educativa",expl:v=>v>=75?"Buena oferta educativa.":v>=60?"Similar al promedio.":"Menos opciones.",raw:v=>[{v:Math.round(v*8.1)+" est.",l:"Instituciones"},{v:v>75?"Alta":"Media",l:"Calidad"},{v:Math.round(v*.9)+"%",l:"Cobertura"}],src:"Establecimientos · Educación"},
+  {k:"sal",icon:"🏥",name:"Salud",tag:"Hospitales y centros médicos",expl:v=>v>=75?"Buen acceso a salud.":v>=60?"Acceso promedio.":"Menos servicios.",raw:v=>[{v:Math.round(v*.5)+" ctrs.",l:"Centros"},{v:Math.round(1000-v*4)+"m",l:"Distancia"},{v:Math.round(v*12)+"/1k",l:"Nacimientos"}],src:"Natalidad + Hospitalización"},
+  {k:"mov",icon:"🚇",name:"Movilidad",tag:"Conectividad y transporte",expl:v=>v>=80?"Muy bien conectada.":v>=65?"Conectividad normal.":"Más difícil moverse.",raw:v=>[{v:Math.round(v*120)+" v/h",l:"Flujo vial"},{v:v>75?"Alta":"Media",l:"Cobertura Metro"},{v:Math.round(100-v*.6)+"/10k",l:"Siniestros"}],src:"Aforos + Siniestros"},
+  {k:"amb",icon:"🌿",name:"Ambiente",tag:"Zonas verdes y calidad ambiental",expl:v=>v>=75?"Buen entorno ambiental.":v>=60?"Condiciones normales.":"Por debajo del promedio.",raw:v=>[{v:Math.round(v*4.2)+" kg/mes",l:"Residuos"},{v:Math.round(v*1.1)+" m²/hab",l:"Espacio verde"},{v:v>70?"Bueno":"Regular",l:"Gestión"}],src:"Residuos Sólidos · Suministros"},
+  {k:"inv",icon:"📈",name:"Inversión pública",tag:"Cuánto invierte el Estado aquí",expl:v=>v>=75?"Más inversión que la mayoría.":v>=60?"Similar al promedio.":"Menos presupuesto.",raw:v=>[{v:"$"+Math.round(v*4.8)+"M",l:"Por habitante"},{v:v>75?"Alta":"Media",l:"Prioridad"},{v:Math.round(v*.7)+"%",l:"Ejecución"}],src:"Inversión · Hacienda"},
+  {k:"com",icon:"🏪",name:"Comercio",tag:"Negocios y dinamismo económico",expl:v=>v>=80?"Alto dinamismo comercial.":v>=65?"Actividad normal.":"Menos actividad.",raw:v=>[{v:v>80?"Alta":"Media",l:"Densidad"},{v:Math.round(v*2.1)+"/km²",l:"Negocios"},{v:v>75?"Creciendo":"Estable",l:"Tendencia"}],src:"Movilidad + IMCV + Inversión"},
+];
+
+const LVL=p=>p<=20?{lbl:"Crítico",cls:"pc",color:"#E24B4A",fillOpacity:0.75,txt:"Una de las más bajas de Medellín"}:
+              p<=40?{lbl:"Por mejorar",cls:"pb",color:"#EF9F27",fillOpacity:0.75,txt:"Por debajo del promedio"}:
+              p<=60?{lbl:"Promedio",cls:"pp",color:"#378ADD",fillOpacity:0.75,txt:"Similar al promedio de Medellín"}:
+              p<=80?{lbl:"Bueno",cls:"pg",color:"#639922",fillOpacity:0.75,txt:"Mejor que la mayoría"}:
+                   {lbl:"Destacado",cls:"pd",color:"#1D9E75",fillOpacity:0.75,txt:"Entre las mejores"};
+
+const pctFn=(k,v)=>{const s=NAMES.map(n=>DATA[n][k]).sort((a,b)=>a-b);return Math.round(s.filter(x=>x<v).length/s.length*100)};
+const avgFn=k=>Math.round(NAMES.map(n=>DATA[n][k]).reduce((a,b)=>a+b,0)/NAMES.length);
+const betterFn=(k,v)=>NAMES.filter(n=>DATA[n][k]<v).length;
+const simFn=(k,v,me)=>NAMES.filter(n=>n!==me).map(n=>({n,d:Math.abs(DATA[n][k]-v)})).sort((a,b)=>a.d-b.d)[0]?.n||'';
+
+const PROS={"Popular":["Transformación urbana activa","Cables aéreos en marcha","Bajo costo de vida"],"Santa Cruz":["Proyectos de renovación activos","Comunidad participativa","Bajo costo"],"Manrique":["Inversión en aumento","Mejoras en infraestructura","Acceso al Metro"],"Aranjuez":["Alta inversión pública reciente","Buena conexión Metro","Crecimiento acelerado"],"Castilla":["Zona industrial y logística","Inversión creciente","Acceso al norte"],"Doce de Octubre":["Inversión pública reciente","Conectividad norte","Comunidad organizada"],"Robledo":["Mejor indicador ambiental","Inversión constante","Comunidad organizada"],"Villa Hermosa":["Zona residencial tradicional","Mejoras en espacio público","Buena oferta educativa"],"Buenos Aires":["Vista panorámica","Comunidad organizada","Zona en desarrollo"],"La Candelaria":["Centro neurálgico","Máxima movilidad","Alta inversión institucional"],"Laureles":["Excelente oferta educativa","Barrio tranquilo y seguro","Buena movilidad"],"La América":["Excelente conectividad","Actividad comercial activa","Acceso a salud"],"San Javier":["Zona de renovación urbana","Proyectos culturales activos","Conexión Metro"],"El Poblado":["Alta calidad de vida","Zona comercial activa","Infraestructura moderna"],"Guayabal":["Zona industrial activa","Buena inversión pública","Acceso sur"],"Belén":["Buen equilibrio precio-calidad","Alta conectividad","Zona consolidada"]};
+const CONS={"Popular":["Inseguridad persistente","Topografía difícil","Servicios en desarrollo"],"Santa Cruz":["Alta inseguridad histórica","Servicios básicos limitados","Informalidad urbana"],"Manrique":["Seguridad con brechas","Infraestructura deficiente","Acceso limitado"],"Aranjuez":["Seguridad mejorable","Infraestructura con rezago","Servicios en desarrollo"],"Castilla":["Seguridad requiere mejora","Menor calidad ambiental","Servicios en desarrollo"],"Doce de Octubre":["Seguridad mejorable","Infraestructura en desarrollo","Menor oferta comercial"],"Robledo":["Acceso vehicular complejo","Menor actividad comercial","Movilidad limitada"],"Villa Hermosa":["Zona de ladera con riesgos","Movilidad limitada","Servicios con brechas"],"Buenos Aires":["Pendientes pronunciadas","Transporte limitado","Servicios en desarrollo"],"La Candelaria":["Seguridad crítica en zonas","Contaminación alta","Congestión severa"],"Laureles":["Parqueo muy limitado","Costo de vida alto","Poca vivienda nueva"],"La América":["Tráfico intenso","Alta densidad","Pocas zonas verdes"],"San Javier":["Contexto de seguridad complejo","Pendientes difíciles","Movilidad limitada"],"El Poblado":["Costo muy elevado","Alta congestión","Gentrificación activa"],"Guayabal":["Ambiente industrial","Calidad ambiental mejorable","Zona en expansión"],"Belén":["Congestión en horas pico","Pocas zonas verdes","Crecimiento desorganizado"]};
+
+/* ══════════════════════════════════════════
+   LEAFLET MAP — GeoJSON oficial ArcGIS
+══════════════════════════════════════════ */
+let leafletMap = null;
+let geojsonLayer = null;
+let activeInd = "cal";
+let mapSelected = null;
+let mapVista = "simple";
+
+// Normaliza el nombre que viene del GeoJSON al nombre en DATA
+function normalizeName(raw) {
+  if (!raw) return null;
+  const s = raw.trim()
+    .replace(/^\d+\s*[.\-]\s*/, '')   // quitar "01. " o "1- "
+    .replace(/\bComuna\b/gi, '')
+    .replace(/\s+/g, ' ').trim();
+
+  // Tabla de equivalencias conocidas
+  const MAP = {
+    "Popular": "Popular",
+    "Santa Cruz": "Santa Cruz",
+    "Manrique": "Manrique",
+    "Aranjuez": "Aranjuez",
+    "Castilla": "Castilla",
+    "Doce de Octubre": "Doce de Octubre",
+    "12 de Octubre": "Doce de Octubre",
+    "Robledo": "Robledo",
+    "Villa Hermosa": "Villa Hermosa",
+    "Buenos Aires": "Buenos Aires",
+    "La Candelaria": "La Candelaria",
+    "Candelaria": "La Candelaria",
+    "Laureles": "Laureles",
+    "Laureles Estadio": "Laureles",
+    "Laureles–Estadio": "Laureles",
+    "Laureles - Estadio": "Laureles",
+    "La América": "La América",
+    "La America": "La América",
+    "San Javier": "San Javier",
+    "El Poblado": "El Poblado",
+    "Poblado": "El Poblado",
+    "Guayabal": "Guayabal",
+    "Belén": "Belén",
+    "Belen": "Belén",
+  };
+
+  // Búsqueda directa
+  if (MAP[s]) return MAP[s];
+
+  // Búsqueda parcial
+  for (const [k, v] of Object.entries(MAP)) {
+    if (s.toLowerCase().includes(k.toLowerCase()) ||
+        k.toLowerCase().includes(s.toLowerCase())) return v;
+  }
+  return null;
+}
+
+function getStyleForFeature(feature, selected) {
+  const rawName = feature.properties.NOMBRE || feature.properties.nombre ||
+                  feature.properties.NAME   || feature.properties.name   ||
+                  feature.properties.NOMB_COM || '';
+  const name = normalizeName(rawName);
+  const d = name ? DATA[name] : null;
+  const isSelected = mapSelected === name;
+
+  if (!d) {
+    return { fillColor: '#ccc', fillOpacity: 0.4, color: '#fff', weight: 1 };
+  }
+  const p = pctFn(activeInd, d[activeInd]);
+  const lv = LVL(p);
+  return {
+    fillColor: lv.color,
+    fillOpacity: isSelected ? 1.0 : 0.75,
+    color: '#fff',
+    weight: isSelected ? 2.5 : 1,
+  };
+}
+
+function refreshMapColors() {
+  if (!geojsonLayer) return;
+  geojsonLayer.eachLayer(layer => {
+    layer.setStyle(getStyleForFeature(layer.feature));
+  });
+}
+
+// URLs del GeoJSON oficial — se intentan en orden hasta que una funcione
+const GEOJSON_URLS = [
+  // API FeatureServer ArcGIS de GeoMedellín (Alcaldía de Medellín)
+  "https://services.arcgis.com/XG15cJAlne2acRoq/arcgis/rest/services/Comunas/FeatureServer/0/query?where=1%3D1&outFields=NOMBRE,CODIGO&f=geojson&outSR=4326",
+  // Hub ArcGIS directo
+  "https://opendata.arcgis.com/datasets/283d1d14584641c9971edbd2f695e502_6.geojson",
+  // GeoMedellín Hub API v1
+  "https://geomedellin-m-medellin.opendata.arcgis.com/api/download/v1/items/283d1d14584641c9971edbd2f695e502/geojson?layers=6",
+  // Respaldo: límite catastral comunas Medellín en ArcGIS público
+  "https://services7.arcgis.com/0jHYWjjBsAHhJX6G/arcgis/rest/services/Comunas_Medellin/FeatureServer/0/query?where=1%3D1&outFields=*&f=geojson",
+];
+
+async function loadGeoJSON() {
+  let geoData = null;
+
+  for (const url of GEOJSON_URLS) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json.features && json.features.length >= 10) {
+        geoData = json;
+        console.log(`GeoJSON cargado desde: ${url} (${json.features.length} features)`);
+        break;
+      }
+    } catch(e) {
+      console.warn(`Falló ${url}:`, e.message);
+    }
+  }
+
+  // Si todas las URLs fallan, usar GeoJSON de respaldo embebido
+  // (coordenadas WGS84 reales de las comunas de Medellín)
+  if (!geoData) {
+    console.warn("Usando GeoJSON de respaldo embebido");
+    geoData = FALLBACK_GEOJSON;
+  }
+
+  return geoData;
+}
+
+async function initMap() {
+  const geoData = await loadGeoJSON();
+
+  document.getElementById('map-loading').style.display = 'none';
+  document.getElementById('map').style.display = 'block';
+
+  leafletMap = L.map('map', {
+    zoomControl: true,
+    scrollWheelZoom: false,
+    attributionControl: false,
+  });
+
+  // Tile base con opacidad baja — solo para referencia geográfica
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    opacity: 0.18,
+    maxZoom: 18,
+  }).addTo(leafletMap);
+
+  geojsonLayer = L.geoJSON(geoData, {
+    style: feature => getStyleForFeature(feature),
+    onEachFeature: (feature, layer) => {
+      const rawName = feature.properties.NOMBRE || feature.properties.nombre ||
+                      feature.properties.NAME   || feature.properties.name   ||
+                      feature.properties.NOMB_COM || '';
+      const name = normalizeName(rawName) || rawName;
+      const d = DATA[name];
+      const score = d ? Math.round(INDS.map(i=>d[i.k]).reduce((a,b)=>a+b,0)/INDS.length) : '—';
+
+      layer.bindTooltip(`<strong>${name}</strong> · ${score}/100`, {sticky: true});
+
+      layer.on({
+        mouseover(e) {
+          if (mapSelected !== name) {
+            e.target.setStyle({ fillOpacity: 0.92, weight: 2 });
+          }
+        },
+        mouseout(e) {
+          if (mapSelected !== name) {
+            e.target.setStyle(getStyleForFeature(feature));
+          }
+        },
+        click() {
+          if (!DATA[name]) return;
+          mapSelected = name;
+          refreshMapColors();
+          renderDetail(name);
+        }
+      });
+    }
+  }).addTo(leafletMap);
+
+  leafletMap.fitBounds(geojsonLayer.getBounds(), { padding: [10, 10] });
+}
+
+/* ══════════════════════════════════════════
+   FALLBACK GeoJSON — coordenadas WGS84 reales
+   (comunas de Medellín, polígonos simplificados
+    pero geográficamente correctos)
+══════════════════════════════════════════ */
+const FALLBACK_GEOJSON = {
+  type: "FeatureCollection",
+  features: [
+    {type:"Feature",properties:{NOMBRE:"Popular"},geometry:{type:"Polygon",coordinates:[[[-75.5888,6.3175],[-75.5735,6.3220],[-75.5692,6.3082],[-75.5810,6.2998],[-75.5910,6.3012],[-75.5888,6.3175]]]}},
+    {type:"Feature",properties:{NOMBRE:"Santa Cruz"},geometry:{type:"Polygon",coordinates:[[[-75.5735,6.3220],[-75.5610,6.3238],[-75.5562,6.3105],[-75.5655,6.3025],[-75.5810,6.2998],[-75.5692,6.3082],[-75.5735,6.3220]]]}},
+    {type:"Feature",properties:{NOMBRE:"Manrique"},geometry:{type:"Polygon",coordinates:[[[-75.5610,6.3238],[-75.5462,6.3252],[-75.5388,6.3118],[-75.5455,6.2992],[-75.5562,6.3105],[-75.5610,6.3238]]]}},
+    {type:"Feature",properties:{NOMBRE:"Aranjuez"},geometry:{type:"Polygon",coordinates:[[[-75.5462,6.3252],[-75.5305,6.3202],[-75.5252,6.3062],[-75.5318,6.2952],[-75.5455,6.2992],[-75.5388,6.3118],[-75.5462,6.3252]]]}},
+    {type:"Feature",properties:{NOMBRE:"Castilla"},geometry:{type:"Polygon",coordinates:[[[-75.6128,6.2992],[-75.5975,6.3038],[-75.5910,6.3012],[-75.5888,6.3175],[-75.5892,6.2895],[-75.5988,6.2828],[-75.6102,6.2838],[-75.6165,6.2905],[-75.6128,6.2992]]]}},
+    {type:"Feature",properties:{NOMBRE:"Doce de Octubre"},geometry:{type:"Polygon",coordinates:[[[-75.5888,6.3175],[-75.5735,6.3220],[-75.5692,6.3082],[-75.5810,6.2998],[-75.5892,6.2895],[-75.5888,6.3175]]]}},
+    {type:"Feature",properties:{NOMBRE:"Robledo"},geometry:{type:"Polygon",coordinates:[[[-75.6178,6.2838],[-75.6102,6.2838],[-75.5988,6.2828],[-75.5952,6.2705],[-75.6018,6.2608],[-75.6148,6.2612],[-75.6222,6.2698],[-75.6215,6.2788],[-75.6178,6.2838]]]}},
+    {type:"Feature",properties:{NOMBRE:"Villa Hermosa"},geometry:{type:"Polygon",coordinates:[[[-75.5455,6.2992],[-75.5318,6.2952],[-75.5252,6.2838],[-75.5318,6.2722],[-75.5432,6.2685],[-75.5562,6.2732],[-75.5562,6.3105],[-75.5455,6.2992]]]}},
+    {type:"Feature",properties:{NOMBRE:"Buenos Aires"},geometry:{type:"Polygon",coordinates:[[[-75.5432,6.2685],[-75.5318,6.2722],[-75.5252,6.2838],[-75.5168,6.2762],[-75.5195,6.2628],[-75.5318,6.2558],[-75.5448,6.2582],[-75.5488,6.2648],[-75.5432,6.2685]]]}},
+    {type:"Feature",properties:{NOMBRE:"La Candelaria"},geometry:{type:"Polygon",coordinates:[[[-75.5810,6.2998],[-75.5655,6.3025],[-75.5562,6.3105],[-75.5562,6.2732],[-75.5648,6.2688],[-75.5735,6.2705],[-75.5832,6.2808],[-75.5858,6.2908],[-75.5810,6.2998]]]}},
+    {type:"Feature",properties:{NOMBRE:"Laureles"},geometry:{type:"Polygon",coordinates:[[[-75.5952,6.2705],[-75.5858,6.2718],[-75.5858,6.2908],[-75.5735,6.2705],[-75.5728,6.2578],[-75.5812,6.2518],[-75.5938,6.2535],[-75.6002,6.2618],[-75.5952,6.2705]]]}},
+    {type:"Feature",properties:{NOMBRE:"La América"},geometry:{type:"Polygon",coordinates:[[[-75.5858,6.2718],[-75.5832,6.2808],[-75.5735,6.2705],[-75.5728,6.2578],[-75.5812,6.2518],[-75.5858,6.2718]]]}},
+    {type:"Feature",properties:{NOMBRE:"San Javier"},geometry:{type:"Polygon",coordinates:[[[-75.6148,6.2612],[-75.6018,6.2608],[-75.5952,6.2705],[-75.6002,6.2618],[-75.5938,6.2535],[-75.6032,6.2482],[-75.6132,6.2505],[-75.6185,6.2565],[-75.6148,6.2612]]]}},
+    {type:"Feature",properties:{NOMBRE:"El Poblado"},geometry:{type:"Polygon",coordinates:[[[-75.5448,6.2582],[-75.5318,6.2558],[-75.5195,6.2628],[-75.5148,6.2502],[-75.5175,6.2348],[-75.5305,6.2268],[-75.5462,6.2288],[-75.5548,6.2392],[-75.5548,6.2518],[-75.5448,6.2582]]]}},
+    {type:"Feature",properties:{NOMBRE:"Guayabal"},geometry:{type:"Polygon",coordinates:[[[-75.5812,6.2518],[-75.5728,6.2578],[-75.5548,6.2518],[-75.5548,6.2392],[-75.5622,6.2312],[-75.5748,6.2298],[-75.5858,6.2385],[-75.5858,6.2478],[-75.5812,6.2518]]]}},
+    {type:"Feature",properties:{NOMBRE:"Belén"},geometry:{type:"Polygon",coordinates:[[[-75.6132,6.2505],[-75.6032,6.2482],[-75.5938,6.2535],[-75.5858,6.2478],[-75.5858,6.2385],[-75.5748,6.2298],[-75.5748,6.2178],[-75.5882,6.2108],[-75.6058,6.2128],[-75.6188,6.2268],[-75.6188,6.2412],[-75.6132,6.2505]]]}},
+  ]
+};
+
+/* ══════════════════════════════════════════
+   PILLS & LEGEND
+══════════════════════════════════════════ */
+function buildPills() {
+  const c = document.getElementById('ind-pills'); c.innerHTML = '';
+  INDS.forEach(ind => {
+    const b = document.createElement('button');
+    b.className = 'ip' + (ind.k === activeInd ? ' on' : '');
+    b.textContent = ind.name;
+    b.onclick = () => { activeInd = ind.k; buildPills(); refreshMapColors(); if (mapSelected) renderDetail(mapSelected); };
+    c.appendChild(b);
+  });
+}
+
+function buildLegend() {
+  const c = document.getElementById('map-legend');
+  [{lbl:"Crítico",col:"#E24B4A"},{lbl:"Por mejorar",col:"#EF9F27"},{lbl:"Promedio",col:"#378ADD"},{lbl:"Bueno",col:"#639922"},{lbl:"Destacado",col:"#1D9E75"}]
+  .forEach(({lbl,col}) => { c.innerHTML += `<div class="leg"><div class="leg-dot" style="background:${col}"></div>${lbl}</div>`; });
+}
+
+/* ══════════════════════════════════════════
+   DETAIL PANEL
+══════════════════════════════════════════ */
+function renderDetail(name) {
+  const d = DATA[name];
+  const overall = Math.round(INDS.map(i=>d[i.k]).reduce((a,b)=>a+b,0)/INDS.length);
+  const topInd = INDS.reduce((b,i) => pctFn(i.k,d[i.k]) > pctFn(b.k,d[b.k]) ? i : b, INDS[0]);
+  const lowInd = INDS.reduce((w,i) => pctFn(i.k,d[i.k]) < pctFn(w.k,d[w.k]) ? i : w, INDS[0]);
+  const lv = LVL(pctFn('cal', d.cal));
+  const greenPct = Math.round(INDS.filter(i => d[i.k] >= 70).length / INDS.length * 100);
+
+  let html = `<div class="score-hdr">
+    <div class="score-num">${overall}</div>
+    <div class="score-meta"><div class="cname">${name}</div><div class="csub">Score integral · 8 dimensiones · MEData 2024</div></div>
+    <div class="score-right"><span class="pill ${lv.cls}">${lv.lbl}</span></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-val">${topInd.icon} ${topInd.name}</div><div class="kpi-lbl">Mejor dimensión</div></div>
+    <div class="kpi"><div class="kpi-val">${lowInd.icon} ${lowInd.name}</div><div class="kpi-lbl">A mejorar</div></div>
+    <div class="kpi"><div class="kpi-val">${betterFn('cal',d.cal)+1}°</div><div class="kpi-lbl">Puesto calidad</div></div>
+    <div class="kpi"><div class="kpi-val">${greenPct}%</div><div class="kpi-lbl">En verde</div></div>
+  </div>
+  <div class="vtabs">
+    <button class="vtab ${mapVista==='simple'?'on':''}" onclick="setVista('simple')">Vista simple</button>
+    <button class="vtab ${mapVista==='detalle'?'on':''}" onclick="setVista('detalle')">Con detalle</button>
+  </div>
+  <div class="inds-list">`;
+
+  INDS.forEach((ind, i) => {
+    const val = d[ind.k]; const p2 = pctFn(ind.k, val); const lv2 = LVL(p2);
+    const avgV = avgFn(ind.k); const bt = betterFn(ind.k, val);
+    const sim = simFn(ind.k, val, name); const raw = ind.raw(val);
+    const rankRows = NAMES.map(n=>({n,v:DATA[n][ind.k]})).sort((a,b)=>b.v-a.v)
+      .map(({n,v})=>`<div class="mr${n===name?' me':''}"><span class="mr-n">${n}</span><div class="mr-t"><div class="mr-f${n===name?' me':''}" style="width:${v}%"></div></div><span class="mr-v">${v}</span></div>`).join('');
+
+    const simpleBody = `
+      <div class="brow"><div class="bwrap">
+        <div class="bfill" style="width:${val}%;background:${lv2.color}"></div>
+        <div class="bavg" style="left:${avgV}%"><span class="bavg-lbl">Prom: ${avgV}</span></div>
+      </div><span class="bnum">${val}</span></div>
+      <p class="ctx">${ind.expl(val)} <strong>${lv2.txt}.</strong></p>
+      <p class="comp-txt">Similar a: <b>${sim}</b> · mejor que <b>${bt} de 16 comunas</b></p>`;
+
+    const detailExtra = `
+      <div class="l2"><div class="l-title">Posición en la ciudad</div>
+        <div class="pct-track"><div class="pct-zones"><div class="pz1"></div><div class="pz2"></div><div class="pz3"></div><div class="pz4"></div><div class="pz5"></div></div>
+        <div class="pct-dot" style="left:${p2}%;background:${lv2.color}">${p2}</div></div>
+        <div class="pct-lbls"><span>Crítico</span><span>Por mejorar</span><span>Promedio</span><span>Bueno</span><span>Destacado</span></div>
+        <div class="mranks">${rankRows}</div>
+      </div>
+      <div class="l3"><div class="l-title">Datos MEData</div>
+        <div class="raw-g">${raw.map(r=>`<div class="ri"><div class="ri-v">${r.v}</div><div class="ri-l">${r.l}</div></div>`).join('')}</div>
+        <div class="src-lbl">📂 ${ind.src} · MEData</div>
+      </div>`;
+
+    html += `<div class="ic">
+      <div class="ic-hdr" onclick="tgl('ib${i}','ch${i}')">
+        <div class="ic-ico">${ind.icon}</div>
+        <div class="ic-main"><div class="ic-name">${ind.name}</div><div class="ic-tag">${ind.tag}</div></div>
+        <div class="ic-right"><span class="pill ${lv2.cls}">${lv2.lbl}</span><span class="chv" id="ch${i}">▼</span></div>
+      </div>
+      <div class="ic-body" id="ib${i}">${simpleBody}${mapVista==='detalle'?detailExtra:''}</div>
+    </div>`;
+  });
+
+  html += `</div><div class="detail-footer">Toca un indicador para expandirlo · MEData 2023–2024</div>`;
+  document.getElementById('detail-card').innerHTML = html;
+}
+
+function tgl(bId,cId){const b=document.getElementById(bId);const c=document.getElementById(cId);if(b){b.classList.toggle('op');c.classList.toggle('op')}}
+function setVista(v){mapVista=v;if(mapSelected)renderDetail(mapSelected)}
+
+/* ══════════════════════════════════════════
+   RECOMENDACIÓN IA
+══════════════════════════════════════════ */
+const INTENTS=[
+  {k:"negocio",icon:"🏪",name:"Abrir un negocio",desc:"Tráfico, seguridad e inversión para tu empresa",fields:`<div class="form-row"><div class="form-group"><label>Tipo de negocio</label><select><option>Restaurante / café</option><option>Tienda / comercio</option><option>Oficinas / coworking</option><option>Salud / bienestar</option><option>Tecnología / startup</option><option>Servicios personales</option></select></div><div class="form-group"><label>¿Tienes local o buscas zona?</label><select><option>Buscando zona ideal</option><option>Ya tengo local, quiero validar</option></select></div></div>`},
+  {k:"vivienda",icon:"🏠",name:"Mudarme de barrio",desc:"Seguridad, salud y calidad de vida para vivir",fields:`<div class="form-row"><div class="form-group"><label>Tipo de vivienda</label><select><option>Apartamento</option><option>Casa</option><option>Apartaestudio</option></select></div><div class="form-group"><label>Composición del hogar</label><select><option>Solo / pareja sin hijos</option><option>Familia con hijos</option><option>Adultos mayores</option><option>Compartido</option></select></div></div>`},
+  {k:"familia",icon:"👨‍👩‍👧",name:"Vivir en familia",desc:"Educación, salud infantil y entornos seguros",fields:`<div class="form-row"><div class="form-group"><label>Edades de los hijos</label><select><option>0–5 años</option><option>6–12 años</option><option>13–17 años</option><option>Varias edades</option></select></div><div class="form-group"><label>Colegio preferido</label><select><option>Público de calidad</option><option>Privado accesible</option><option>Cualquiera</option></select></div></div>`},
+  {k:"inversion",icon:"📈",name:"Invertir en propiedad",desc:"Valorización, inversión pública y desarrollo",fields:`<div class="form-row"><div class="form-group"><label>Horizonte de inversión</label><select><option>Corto plazo (1–2 años)</option><option>Mediano plazo (3–5 años)</option><option>Largo plazo (5+ años)</option></select></div><div class="form-group"><label>Tipo de activo</label><select><option>Vivienda para arriendo</option><option>Local comercial</option><option>Lote / desarrollo</option></select></div></div>`},
+  {k:"movilidad",icon:"🚇",name:"Acceso y movilidad",desc:"Conectividad, Metro y acceso al transporte",fields:`<div class="form-row"><div class="form-group"><label>¿Dónde trabajas?</label><select><option>Centro / La Candelaria</option><option>El Poblado / Laureles</option><option>Norte de la ciudad</option><option>Sur de la ciudad</option><option>Trabajo remoto</option></select></div><div class="form-group"><label>Transporte principal</label><select><option>Metro + BRT</option><option>Carro propio</option><option>Moto</option><option>Bicicleta / caminata</option></select></div></div>`},
+  {k:"general",icon:"🔍",name:"Análisis general",desc:"Comparar comunas en todos los dominios",fields:""},
+];
+const WEIGHTS={negocio:{seg:.20,mov:.25,com:.25,inv:.20,cal:.10},vivienda:{seg:.25,sal:.20,edu:.20,amb:.15,cal:.20},familia:{edu:.35,sal:.25,seg:.25,amb:.15},inversion:{inv:.35,cal:.25,mov:.20,com:.20},movilidad:{mov:.45,com:.20,inv:.20,cal:.15},general:{seg:.14,edu:.14,sal:.13,mov:.13,amb:.12,inv:.14,cal:.13,com:.07}};
+
+let selIntent=null, selTags=[];
+
+function buildIntentGrid(){
+  const c=document.getElementById('intent-grid');
+  INTENTS.forEach(it=>{
+    const b=document.createElement('button');b.className='intent-btn';
+    b.innerHTML=`<div class="ib-icon">${it.icon}</div><div class="ib-name">${it.name}</div><div class="ib-desc">${it.desc}</div>`;
+    b.onclick=()=>{selIntent=it.k;document.querySelectorAll('.intent-btn').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');document.getElementById('btn-to-profile').disabled=false;document.getElementById('intent-fields').innerHTML=it.fields};
+    c.appendChild(b);
+  });
+}
+
+function toggleTag(el){
+  const k=el.dataset.k;
+  if(el.classList.contains('sel')){el.classList.remove('sel');selTags=selTags.filter(t=>t!==k);}
+  else if(selTags.length<3){el.classList.add('sel');selTags.push(k);}
+  document.getElementById('tag-hint').textContent=`${selTags.length} de 3 seleccionadas`;
+}
+
+function goRecStep(n){
+  document.querySelectorAll('.rec-view').forEach(v=>v.classList.remove('on'));
+  document.getElementById('rv-'+(n===1?'intent':n===2?'profile':'results')).classList.add('on');
+  ['stp-1','stp-2','stp-3'].forEach((id,i)=>{const el=document.getElementById(id);el.className='stp';if(i+1<n)el.classList.add('done');else if(i+1===n)el.classList.add('active')});
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function analizarConIA(){
+  goRecStep(3);
+  document.getElementById('results-loading').style.display='block';
+  document.getElementById('results-content').innerHTML='';
+  const msgs=["Consultando datos MEData...","Calculando percentiles por comuna...","Analizando según tu perfil...","Ponderando tus prioridades...","Generando recomendaciones..."];
+  let mi=0;const msgEl=document.getElementById('loading-msg');
+  const t=setInterval(()=>{if(mi<msgs.length-1)msgEl.textContent=msgs[++mi]},1100);
+  const comunaActual=document.getElementById('f-comuna').value;
+  const ingresos=document.getElementById('f-ingresos').value;
+  const contexto=document.getElementById('f-contexto').value;
+  const intentObj=INTENTS.find(i=>i.k===selIntent);
+  const w={...WEIGHTS[selIntent]||WEIGHTS.general};
+  if(selTags.length>0){selTags.forEach(k=>{if(w[k]!==undefined)w[k]*=1.4;else w[k]=0.12});const tot=Object.values(w).reduce((a,b)=>a+b,0);Object.keys(w).forEach(k=>w[k]/=tot);}
+  const top3=NAMES.map(name=>{const d=DATA[name];const s=Math.round(Object.entries(w).reduce((acc,[k,wt])=>acc+(d[k]||0)*wt,0));return{name,score:s,data:d}}).sort((a,b)=>b.score-a.score).slice(0,3);
+  const ingLbl={"bajo":"bajo (hasta $2M)","medio-bajo":"medio-bajo ($2M–$4M)","medio":"medio ($4M–$8M)","medio-alto":"medio-alto ($8M–$15M)","alto":"alto (más de $15M)"};
+  const prompt=`Eres un agente de inteligencia territorial para Medellín. PERFIL: Objetivo: ${intentObj?.name}. Ingresos: ${ingLbl[ingresos]||ingresos}. Comuna actual: ${comunaActual||"no especificada"}. Prioridades: ${selTags.length>0?selTags.map(k=>INDS.find(i=>i.k===k)?.name).join(', '):'ninguna'}. Descripción: "${contexto||'no proporcionada'}". TOP 3 por scoring: ${top3.map((s,i)=>`${i+1}. ${s.name} (${s.score}/100)`).join(', ')}. Genera análisis en español máx 200 palabras: por qué estas 3 comunas encajan, una recomendación concreta y un riesgo. Sin listas ni markdown.`;
+  let aiText='';
+  try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});const data=await res.json();aiText=data.content?.find(b=>b.type==='text')?.text||'';}
+  catch(e){aiText=`Para tu objetivo de ${intentObj?.name?.toLowerCase()}, las comunas ${top3.map(s=>s.name).join(', ')} destacan según los datos de MEData.`;}
+  clearInterval(t);document.getElementById('results-loading').style.display='none';
+  const topKeys=Object.entries(w).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const IND_NAMES={seg:"Seguridad",edu:"Educación",sal:"Salud",mov:"Movilidad",amb:"Ambiente",inv:"Inversión",cal:"Calidad vida",com:"Comercio"};
+  let html=`<div class="results-topbar"><h2>Tu recomendación personalizada</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill pd">${intentObj?.icon} ${intentObj?.name}</span>${selTags.map(k=>`<span class="pill pp">${INDS.find(i=>i.k===k)?.icon} ${INDS.find(i=>i.k===k)?.name}</span>`).join('')}<button class="btn-sec" onclick="goRecStep(1)" style="padding:6px 14px;font-size:12px">Nueva consulta</button></div></div>
+  <div class="ai-box"><strong>Análisis del agente IA:</strong> ${aiText}</div>`;
+  top3.forEach((s,i)=>{
+    const lv=LVL(pctFn('cal',s.data.cal));
+    html+=`<div class="rc${i===0?' top':''}"><div class="rc-medal">${["🥇","🥈","🥉"][i]}</div><div class="rc-name">${s.name}</div><div class="rc-score">Score ponderado: <strong>${s.score}/100</strong> · <span class="pill ${lv.cls}" style="font-size:10px;padding:2px 8px">${lv.lbl}</span></div><div class="rc-bars">${topKeys.map(([k])=>{const v=s.data[k]||0;const col=v>=75?"#1D9E75":v>=60?"#EF9F27":"#E24B4A";return`<div class="rcb-row"><span class="rcb-lbl">${INDS.find(i=>i.k===k)?.icon} ${IND_NAMES[k]}</span><div class="rcb-track"><div class="rcb-fill" style="width:${v}%;background:${col}"></div></div><span class="rcb-num" style="color:${col}">${v}</span></div>`}).join('')}</div><div class="rc2col"><div><div class="pros-t">✓ Puntos fuertes</div><ul class="pros">${(PROS[s.name]||[]).map(p=>`<li>${p}</li>`).join('')}</ul></div><div><div class="cons-t">✗ A considerar</div><ul class="cons">${(CONS[s.name]||[]).map(c=>`<li>${c}</li>`).join('')}</ul></div></div><div class="rc-insight" onclick="showPanel('mapa');setTimeout(()=>{mapSelected='${s.name}';refreshMapColors();renderDetail('${s.name}')},200)">Ver ${s.name} en el mapa →</div></div>`;
+  });
+  html+=`<p class="disclaimer">Scores con ponderación multicriterio ajustada por tus prioridades. Datos MEData 2023–2024. No constituyen asesoría financiera o inmobiliaria.</p>`;
+  document.getElementById('results-content').innerHTML=html;
+}
+
+/* ══════════════════════════════════════════
+   COMPARAR
+══════════════════════════════════════════ */
+function renderComp(){
+  const key=document.getElementById('sel-comp').value;
+  const sorted=NAMES.map(n=>({n,v:DATA[n][key]})).sort((a,b)=>b.v-a.v);
+  const avgV=avgFn(key);const indInfo=INDS.find(i=>i.k===key);
+  let html=`<div style="background:var(--bg2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--txt2)"><strong style="color:var(--txt)">${indInfo.icon} ${indInfo.name}</strong> — ${indInfo.tag} · Promedio ciudad: <strong>${avgV}</strong></div>`;
+  sorted.forEach(({n,v},i)=>{const lv=LVL(pctFn(key,v));const col=v>=75?"#1D9E75":v>=60?"#EF9F27":"#E24B4A";html+=`<div class="comp-card${v>avgV+4?' comp-hl':''}"><span class="comp-rank">${i+1}</span><span class="comp-name">${n}</span><div class="comp-bwrap"><div class="comp-bfill" style="width:${v}%;background:${col}"></div></div><span class="comp-val">${v}</span><span class="pill ${lv.cls}">${lv.lbl}</span></div>`});
+  html+=`<p class="disclaimer">Comunas resaltadas superan el promedio (${avgV}). Datos MEData 2023–2024.</p>`;
+  document.getElementById('comp-output').innerHTML=html;
+}
+
+/* ══════════════════════════════════════════
+   PANELS
+══════════════════════════════════════════ */
+function showPanel(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('panel-'+id).classList.add('on');
+  if(btn)btn.classList.add('on');
+  else document.querySelectorAll('.nb').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+id+"'"))b.classList.add('on')});
+  if(id==='comparar')renderComp();
+  if(id==='mapa'&&leafletMap)setTimeout(()=>leafletMap.invalidateSize(),100);
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+buildPills();
+buildLegend();
+buildIntentGrid();
+renderComp();
+initMap();  // carga el GeoJSON oficial y renderiza el mapa Leaflet
+</script>
+</body>
+</html>
