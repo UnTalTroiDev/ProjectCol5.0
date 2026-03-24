@@ -600,6 +600,31 @@ class TestNewsletterSubscribersAuth:
         assert response.status_code in (401, 422, 503)
 
 
+class TestNewsletterPublicSubscribe:
+    def test_subscribe_valid_phone_returns_200(self):
+        response = client.post(
+            "/api/newsletter/subscribe",
+            json={"phone_number": "+573009999999", "comuna_code": "ALL"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body.get("success") is True
+
+    def test_subscribe_invalid_phone_returns_422(self):
+        response = client.post(
+            "/api/newsletter/subscribe",
+            json={"phone_number": "bad"},
+        )
+        assert response.status_code == 422
+
+    def test_subscribe_missing_phone_returns_422(self):
+        response = client.post(
+            "/api/newsletter/subscribe",
+            json={},
+        )
+        assert response.status_code == 422
+
+
 class TestNewsletterSendNow:
     def test_send_now_without_auth_returns_error(self):
         response = client.post("/api/newsletter/send-now")

@@ -398,6 +398,12 @@ def newsletter_status() -> NewsletterStatusResponse:
     return NewsletterStatusResponse(**data)
 
 
+@app.post("/api/newsletter/subscribe", tags=["newsletter"])
+def newsletter_public_subscribe(req: AddSubscriberRequest) -> Dict[str, Any]:
+    """Suscripcion publica al newsletter diario (sin autenticacion)."""
+    return add_subscriber(phone_number=req.phone_number, comuna_code=req.comuna_code)
+
+
 @app.get("/api/newsletter/subscribers", tags=["newsletter"])
 def newsletter_list_subscribers(
     authorization: Optional[str] = Header(None),

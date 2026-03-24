@@ -633,3 +633,122 @@
   color: #fff;
   font-weight: 600;
 }
+
+/* ── Newsletter WhatsApp subscription ────────────────────────────── */
+.nlSection {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.nlCard {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  background: var(--card-bg);
+  max-width: 540px;
+}
+
+.nlHeader {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.nlIcon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.nlTitle {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: var(--text-h);
+}
+
+.nlDesc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.nlForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.nlLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 150px;
+}
+
+.nlInput,
+.nlSelect {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--background, var(--bg));
+  color: var(--text);
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.nlInput:focus,
+.nlSelect:focus {
+  outline: none;
+  border-color: #25D366;
+}
+
+.nlSubmit {
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: none;
+  background: #25D366;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.nlSubmit:hover { background: #1DA851; }
+.nlSubmit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.nlResult {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.nlResult--ok {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.nlResult--err {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+@media (prefers-color-scheme: dark) {
+  .nlResult--ok { background: #052e16; color: #86efac; border-color: #166534; }
+  .nlResult--err { background: #450a0a; color: #fca5a5; border-color: #991b1b; }
+}
