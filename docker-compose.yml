@@ -43,6 +43,15 @@ services:
       # Override / set defaults here; values in .env take precedence.
       ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}"
       STALE_CACHE_DB: "${STALE_CACHE_DB:-/app/data/medata_stale.sqlite3}"
+      # WhatsApp newsletter
+      WHATSAPP_ACCESS_TOKEN: "${WHATSAPP_ACCESS_TOKEN:-}"
+      WHATSAPP_PHONE_NUMBER_ID: "${WHATSAPP_PHONE_NUMBER_ID:-}"
+      WHATSAPP_DB: "${WHATSAPP_DB:-/app/data/whatsapp_subscribers.sqlite3}"
+      WHATSAPP_RATE_LIMIT_PER_MINUTE: "${WHATSAPP_RATE_LIMIT_PER_MINUTE:-30}"
+      NEWSLETTER_ENABLED: "${NEWSLETTER_ENABLED:-false}"
+      NEWSLETTER_SCHEDULE_HOUR: "${NEWSLETTER_SCHEDULE_HOUR:-8}"
+      NEWSLETTER_TIMEZONE: "${NEWSLETTER_TIMEZONE:-America/Bogota}"
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-}"
     networks:
       - medcity
     healthcheck:

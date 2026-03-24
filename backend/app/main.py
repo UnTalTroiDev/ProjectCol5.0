@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 
 from .schemas.dashboard import (
     ComunasResponse, CrimeStatsResponse, OverviewResponse, TrendsResponse,
 )
 from .schemas.city import CitySummaryResponse
+from .schemas.whatsapp import (
+    AddSubscriberRequest, ManualSendResponse, NewsletterStatusResponse,
+)
 from .services.dashboard_service import (
     get_crime_stats, get_dashboard_compare, get_dashboard_overview,
     get_dashboard_trends, get_territory_comunas,
@@ -20,6 +24,11 @@ from .services.health_service import get_natalidad, get_hospitalizacion
 from .services.education_service import get_establecimientos, get_ambiente_escolar
 from .services.environment_service import get_residuos_solidos
 from .services.quality_service import get_imcv, get_siniestros_viales
+from .services.newsletter_service import (
+    add_subscriber, remove_subscriber, get_active_subscribers,
+    get_newsletter_status, run_newsletter,
+    start_scheduler, stop_scheduler, get_scheduler,
+)
 from .utils.normalize import normalize_code
 
 logging.basicConfig(
@@ -28,13 +37,39 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+
+
+def _check_admin(authorization: Optional[str]) -> None:
+    """Validate the bearer token for admin endpoints."""
+    if not ADMIN_TOKEN:
+        raise HTTPException(status_code=503, detail={
+            "code": "ADMIN_NOT_CONFIGURED",
+            "message": "ADMIN_TOKEN env var not set.",
+        })
+    if authorization != f"Bearer {ADMIN_TOKEN}":
+        raise HTTPException(status_code=401, detail={
+            "code": "UNAUTHORIZED",
+            "message": "Invalid or missing admin token.",
+        })
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start/stop the newsletter scheduler with the app."""
+    start_scheduler()
+    yield
+    stop_scheduler()
+
+
 app = FastAPI(
     title="MedCity Dashboard API",
     description=(
         "API para un dashboard de Medellin usando datos abiertos (MEData). "
         "Cubre movilidad, seguridad, salud, educacion, medio ambiente, calidad de vida y mas."
     ),
-    version="0.4.0",
+    version="0.5.0",
+    lifespan=lifespan,
 )
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
@@ -44,7 +79,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -53,7 +88,7 @@ app.add_middleware(
 
 @app.get("/api/health", tags=["sistema"])
 def health() -> dict:
-    return {"status": "ok", "version": "0.4.0"}
+    return {"status": "ok", "version": "0.5.0"}
 
 
 # ── Territorio ─────────────────────────────────────────────────────────────
@@ -352,3 +387,58 @@ def city_summary() -> Dict[str, Any]:
         "total_domains": len(domains),
         "message": f"{available_count}/{len(domains)} dominios de datos disponibles en MEData.",
     }
+
+
+# ── Newsletter WhatsApp ──────────────────────────────────────────────────
+
+@app.get("/api/newsletter/status", response_model=NewsletterStatusResponse, tags=["newsletter"])
+def newsletter_status() -> NewsletterStatusResponse:
+    """Estado de la integracion de newsletter WhatsApp."""
+    data = get_newsletter_status(scheduler=get_scheduler())
+    return NewsletterStatusResponse(**data)
+
+
+@app.post("/api/newsletter/subscribe", tags=["newsletter"])
+def newsletter_public_subscribe(req: AddSubscriberRequest) -> Dict[str, Any]:
+    """Suscripcion publica al newsletter diario (sin autenticacion)."""
+    return add_subscriber(phone_number=req.phone_number, comuna_code=req.comuna_code)
+
+
+@app.get("/api/newsletter/subscribers", tags=["newsletter"])
+def newsletter_list_subscribers(
+    authorization: Optional[str] = Header(None),
+) -> List[Dict[str, Any]]:
+    """Lista de suscriptores activos (requiere ADMIN_TOKEN)."""
+    _check_admin(authorization)
+    return get_active_subscribers()
+
+
+@app.post("/api/newsletter/subscribers", tags=["newsletter"])
+def newsletter_add_subscriber(
+    req: AddSubscriberRequest,
+    authorization: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    """Agrega un numero de telefono al newsletter diario (requiere ADMIN_TOKEN)."""
+    _check_admin(authorization)
+    return add_subscriber(phone_number=req.phone_number, comuna_code=req.comuna_code)
+
+
+@app.delete("/api/newsletter/subscribers", tags=["newsletter"])
+def newsletter_remove_subscriber(
+    phone_number: str = Query(..., min_length=10, max_length=16,
+                              description="Numero en formato E.164 (ej: +573001234567)."),
+    authorization: Optional[str] = Header(None),
+) -> Dict[str, Any]:
+    """Elimina un numero del newsletter (requiere ADMIN_TOKEN)."""
+    _check_admin(authorization)
+    return remove_subscriber(phone_number=phone_number)
+
+
+@app.post("/api/newsletter/send-now", response_model=ManualSendResponse, tags=["newsletter"])
+def newsletter_send_now(
+    authorization: Optional[str] = Header(None),
+) -> ManualSendResponse:
+    """Envia el newsletter inmediatamente a todos los suscriptores activos (requiere ADMIN_TOKEN)."""
+    _check_admin(authorization)
+    result = run_newsletter()
+    return ManualSendResponse(**result)

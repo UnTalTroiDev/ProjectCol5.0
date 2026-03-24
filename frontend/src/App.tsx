@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import MedellinMap from './MedellinMap'
+import NewsletterSubscribe from './components/NewsletterSubscribe'
 import './App.css'
 
 // ---------------------------------------------------------------------------
@@ -1017,6 +1018,9 @@ export default function App() {
           ) : null}
         </div>
       )}
+
+      {/* Newsletter WhatsApp subscription */}
+      <NewsletterSubscribe comunas={comunas} />
     </div>
   )
 }
