@@ -62,11 +62,20 @@ def _download_with_retry(url: str) -> bytes:
     for attempt in range(1, _RETRY_ATTEMPTS + 1):
         try:
             logger.info("Descargando dataset (intento %d/%d): %s", attempt, _RETRY_ATTEMPTS, url)
-            resp = requests.get(url, timeout=180)
+            resp = requests.get(url, timeout=(15, 300), stream=True)
             resp.raise_for_status()
-            logger.info("Dataset descargado OK (%d bytes): %s", len(resp.content), url)
-            return resp.content
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            chunks = []
+            for chunk in resp.iter_content(chunk_size=1024 * 256):
+                if chunk:
+                    chunks.append(chunk)
+            content = b"".join(chunks)
+            logger.info("Dataset descargado OK (%d bytes): %s", len(content), url)
+            return content
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+        ) as exc:
             last_exc = exc
             if attempt < _RETRY_ATTEMPTS:
                 wait = _RETRY_BACKOFF_BASE ** attempt
@@ -90,7 +99,7 @@ def fetch_url_bytes(url: str) -> bytes:
             logger.warning("Sirviendo stale cache para: %s", url)
             return stale
         raise HTTPException(status_code=503, detail={"code": "UPSTREAM_TIMEOUT", "url": url})
-    except requests.exceptions.ConnectionError:
+    except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError):
         stale = _stale_get(url)
         if stale is not None:
             logger.warning("Sirviendo stale cache para: %s", url)
