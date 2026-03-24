@@ -1200,7 +1200,7 @@ function ComparisonSection() {
         >
           {[
             { target: 16, suffix: '', label: 'comunas mapeadas' },
-            { target: 3, suffix: '', label: 'secretarías integradas' },
+            { target: 14, suffix: '', label: 'secretarías integradas' },
             { target: 85, suffix: '%', label: 'reducción tiempo análisis' },
             { target: 100, suffix: '%', label: 'datos gratuitos y abiertos' },
           ].map((stat) => (

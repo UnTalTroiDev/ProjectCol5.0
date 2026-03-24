@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import NewsletterSubscribe from './components/NewsletterSubscribe'
 import './App.css'
 
 import type { ComunaOption, Tab } from './types'
@@ -147,6 +148,8 @@ export default function App() {
           <CompareTab comunaCode={selected} comunas={comunas} selectedYear={selectedYear} />
         )}
       </Suspense>
+      {/* Newsletter WhatsApp subscription */}
+      <NewsletterSubscribe comunas={comunas} />
     </div>
   )
 }

@@ -539,3 +539,155 @@ class TestCitySummary:
         _assert_no_server_error(response)
         body = response.json()
         assert body["total_domains"] == len(body["domains"])
+
+
+# ---------------------------------------------------------------------------
+# Newsletter — WhatsApp integration
+# ---------------------------------------------------------------------------
+
+class TestNewsletterStatus:
+    def test_status_returns_200(self):
+        response = client.get("/api/newsletter/status")
+        assert response.status_code == 200
+
+    def test_status_has_required_fields(self):
+        response = client.get("/api/newsletter/status")
+        assert response.status_code == 200
+        body = response.json()
+        for key in ("configured", "enabled", "subscriber_count", "messages_sent_today"):
+            assert key in body, f"Missing key '{key}' in newsletter status"
+
+    def test_status_configured_is_bool(self):
+        response = client.get("/api/newsletter/status")
+        assert response.status_code == 200
+        assert isinstance(response.json()["configured"], bool)
+
+
+class TestNewsletterSubscribersAuth:
+    def test_list_subscribers_without_auth_returns_error(self):
+        """Without ADMIN_TOKEN set or with wrong token, should reject."""
+        response = client.get("/api/newsletter/subscribers")
+        assert response.status_code in (401, 503)
+
+    def test_add_subscriber_without_auth_returns_error(self):
+        response = client.post(
+            "/api/newsletter/subscribers",
+            json={"phone_number": "+573001234567"},
+        )
+        assert response.status_code in (401, 503)
+
+    def test_remove_subscriber_without_auth_returns_error(self):
+        response = client.delete(
+            "/api/newsletter/subscribers",
+            params={"phone_number": "+573001234567"},
+        )
+        assert response.status_code in (401, 503)
+
+    def test_add_subscriber_invalid_phone_returns_422(self):
+        response = client.post(
+            "/api/newsletter/subscribers",
+            json={"phone_number": "invalid"},
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code in (401, 422, 503)
+
+    def test_add_subscriber_missing_phone_returns_422(self):
+        response = client.post(
+            "/api/newsletter/subscribers",
+            json={},
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert response.status_code in (401, 422, 503)
+
+
+class TestNewsletterPublicSubscribe:
+    def test_subscribe_valid_phone_returns_200(self):
+        response = client.post(
+            "/api/newsletter/subscribe",
+            json={"phone_number": "+573009999999", "comuna_code": "ALL"},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body.get("success") is True
+
+    def test_subscribe_invalid_phone_returns_422(self):
+        response = client.post(
+            "/api/newsletter/subscribe",
+            json={"phone_number": "bad"},
+        )
+        assert response.status_code == 422
+
+    def test_subscribe_missing_phone_returns_422(self):
+        response = client.post(
+            "/api/newsletter/subscribe",
+            json={},
+        )
+        assert response.status_code == 422
+
+
+class TestNewsletterSendNow:
+    def test_send_now_without_auth_returns_error(self):
+        response = client.post("/api/newsletter/send-now")
+        assert response.status_code in (401, 503)
+
+
+class TestMessageFormatter:
+    """Unit tests for the message formatter (no network needed)."""
+
+    def test_format_daily_newsletter_under_4096_chars(self):
+        from app.services.message_formatter import format_daily_newsletter
+
+        overview = {
+            "metrics": {
+                "mobility_equiv_vehicles": {"value": 12345, "unit": "vehiculos_equivalentes"},
+                "safety_homicides": {"value": 100, "unit": "casos"},
+                "investment_amount": {"value": 5_000_000_000, "unit": "COP"},
+            },
+            "city_averages": {},
+            "recommendations": [
+                "Recomendacion uno.",
+                "Recomendacion dos.",
+                "Recomendacion tres.",
+            ],
+            "safety_by_comuna": [
+                {"comuna_code": "01", "safety_homicides": 50},
+                {"comuna_code": "02", "safety_homicides": 40},
+            ],
+        }
+        security = {"available": True, "by_type": [
+            {"crime_type": "HOMICIDIO", "total": 500},
+            {"crime_type": "HURTO A PERSONAS", "total": 3000},
+        ]}
+        city_summary = {"available_domains": 5, "total_domains": 7}
+
+        msg = format_daily_newsletter(overview, security, city_summary)
+        assert isinstance(msg, str)
+        assert len(msg) <= 4096
+        assert "MedCity Dashboard" in msg
+
+    def test_format_daily_newsletter_handles_empty_data(self):
+        from app.services.message_formatter import format_daily_newsletter
+
+        msg = format_daily_newsletter(
+            overview={"metrics": {}, "recommendations": [], "safety_by_comuna": []},
+            security={"available": False},
+            city_summary={"available_domains": 0, "total_domains": 0},
+        )
+        assert isinstance(msg, str)
+        assert "MedCity Dashboard" in msg
+
+    def test_format_comuna_newsletter_under_4096_chars(self):
+        from app.services.message_formatter import format_comuna_newsletter
+
+        overview = {
+            "selected": {"comuna_code": "01", "comuna_name": "Popular"},
+            "metrics": {
+                "safety_homicides": {"value": 30, "unit": "casos"},
+                "investment_amount": {"value": 1_000_000, "unit": "COP"},
+            },
+            "recommendations": ["Seguridad [CRITICO]: 30 homicidios."],
+        }
+        msg = format_comuna_newsletter(overview, "01")
+        assert isinstance(msg, str)
+        assert len(msg) <= 4096
+        assert "Popular" in msg
