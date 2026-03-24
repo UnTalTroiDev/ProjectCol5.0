@@ -454,7 +454,7 @@ function Hero() {
             lineHeight: 1.6,
           }}
         >
-          16 comunas. 3 fuentes de datos reales. Análisis en{' '}
+          16 comunas. 14 fuentes de datos reales. Análisis en{' '}
           <span style={{ color: COLORS.teal, fontWeight: 600 }}>menos de 10 segundos</span>.
         </motion.p>
 

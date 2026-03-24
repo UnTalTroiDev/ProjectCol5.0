@@ -62,7 +62,7 @@ def _download_with_retry(url: str) -> bytes:
     for attempt in range(1, _RETRY_ATTEMPTS + 1):
         try:
             logger.info("Descargando dataset (intento %d/%d): %s", attempt, _RETRY_ATTEMPTS, url)
-            resp = requests.get(url, timeout=60)
+            resp = requests.get(url, timeout=180)
             resp.raise_for_status()
             logger.info("Dataset descargado OK (%d bytes): %s", len(resp.content), url)
             return resp.content
