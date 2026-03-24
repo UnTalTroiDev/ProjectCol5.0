@@ -11,6 +11,9 @@ python-dateutil==2.9.0.post0
 slowapi==0.1.9
 apscheduler==3.10.4
 
+# Telegram bot
+python-telegram-bot==21.10
+
 # Testing
 pytest==8.3.5
 pytest-asyncio==0.25.0
