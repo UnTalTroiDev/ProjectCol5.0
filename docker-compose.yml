@@ -8,8 +8,9 @@ version: "3.9"
 #   docker compose up --build
 #
 # Services:
-#   backend  → http://localhost:8000
-#   frontend → http://localhost:5173
+#   backend      → http://localhost:8000
+#   frontend     → http://localhost:5173
+#   telegram-bot → Telegram polling (no port exposed)
 # ---------------------------------------------------------------------------
 
 networks:
@@ -61,6 +62,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Telegram Bot — python-telegram-bot (polling)
+  # --------------------------------------------------------------------------
+  telegram-bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+      - stale_cache_data:/app/data
+    env_file:
+      - .env
+    environment:
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
+      STALE_CACHE_DB: "${STALE_CACHE_DB:-/app/data/medata_stale.sqlite3}"
+    command: ["python", "bot_runner.py"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - medcity
     restart: unless-stopped
 
   # --------------------------------------------------------------------------
