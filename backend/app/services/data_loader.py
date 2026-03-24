@@ -19,7 +19,7 @@ from ..config import CSV_CACHE_TTL_SECONDS, DATASETS
 logger = logging.getLogger(__name__)
 
 _byte_cache: TTLCache[str, bytes] = TTLCache(maxsize=32, ttl=CSV_CACHE_TTL_SECONDS)
-_cache_lock = asyncio.Lock()
+_cache_lock = threading.Lock()
 
 # ── SQLite stale cache ─────────────────────────────────────────────────────
 _SQLITE_PATH = os.getenv("STALE_CACHE_DB", "/tmp/medata_stale.sqlite3")
@@ -64,47 +64,38 @@ def _stale_get(url: str) -> Optional[bytes]:
 _RETRY_ATTEMPTS = 3
 _RETRY_BACKOFF_BASE = 2
 
-_http_client: Optional[httpx.AsyncClient] = None
-
-
-def _get_http_client() -> httpx.AsyncClient:
-    global _http_client
-    if _http_client is None or _http_client.is_closed:
-        _http_client = httpx.AsyncClient(timeout=httpx.Timeout(180.0), follow_redirects=True)
-    return _http_client
-
 
 async def _download_with_retry(url: str) -> bytes:
-    client = _get_http_client()
     last_exc: Exception = RuntimeError("Sin intentos realizados")
-    for attempt in range(1, _RETRY_ATTEMPTS + 1):
-        try:
-            logger.info("Descargando dataset (intento %d/%d): %s", attempt, _RETRY_ATTEMPTS, url)
-            resp = await client.get(url)
-            resp.raise_for_status()
-            logger.info("Dataset descargado OK (%d bytes): %s", len(resp.content), url)
-            return resp.content
-        except (httpx.TimeoutException, httpx.ConnectError) as exc:
-            last_exc = exc
-            if attempt < _RETRY_ATTEMPTS:
-                wait = _RETRY_BACKOFF_BASE ** attempt
-                logger.warning("Reintentando en %ds (%d/%d): %s", wait, attempt, _RETRY_ATTEMPTS, url)
-                await asyncio.sleep(wait)
-        except httpx.HTTPStatusError as exc:
-            raise exc
+    async with httpx.AsyncClient(timeout=httpx.Timeout(180.0), follow_redirects=True) as client:
+        for attempt in range(1, _RETRY_ATTEMPTS + 1):
+            try:
+                logger.info("Descargando dataset (intento %d/%d): %s", attempt, _RETRY_ATTEMPTS, url)
+                resp = await client.get(url)
+                resp.raise_for_status()
+                logger.info("Dataset descargado OK (%d bytes): %s", len(resp.content), url)
+                return resp.content
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                last_exc = exc
+                if attempt < _RETRY_ATTEMPTS:
+                    wait = _RETRY_BACKOFF_BASE ** attempt
+                    logger.warning("Reintentando en %ds (%d/%d): %s", wait, attempt, _RETRY_ATTEMPTS, url)
+                    await asyncio.sleep(wait)
+            except httpx.HTTPStatusError as exc:
+                raise exc
     raise last_exc
 
 
 async def fetch_url_bytes(url: str) -> bytes:
     """Descarga con retry, cache TTL en memoria y fallback a stale cache (SQLite)."""
-    async with _cache_lock:
+    with _cache_lock:
         cached = _byte_cache.get(url)
     if cached is not None:
         return cached
 
     try:
         content = await _download_with_retry(url)
-        async with _cache_lock:
+        with _cache_lock:
             _byte_cache[url] = content
         _stale_put(url, content)
         return content

@@ -272,8 +272,12 @@ def _build_recommendations(
         return f"{v:,.0f}"
 
     if comuna_code == "ALL":
-        top_safety = safety_by.sort_values("safety_homicides", ascending=False).iloc[0]
-        top_mob = mobility_by.sort_values("mobility_equiv_vehicles", ascending=False).iloc[0]
+        safety_sorted = safety_by.sort_values("safety_homicides", ascending=False)
+        mob_sorted = mobility_by.sort_values("mobility_equiv_vehicles", ascending=False)
+        if safety_sorted.empty or mob_sorted.empty:
+            return ["Datos insuficientes para generar recomendaciones con el filtro seleccionado."]
+        top_safety = safety_sorted.iloc[0]
+        top_mob = mob_sorted.iloc[0]
         avg_safety = city_avgs["safety_homicides"]["value"]
         avg_mobility = city_avgs["mobility_equiv_vehicles"]["value"]
         return [
