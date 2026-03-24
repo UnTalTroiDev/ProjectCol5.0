@@ -38,9 +38,12 @@ class DatasetURLS:
     )
 
     # ── Inversión pública ──────────────────────────────────────────────────
-    investment_inversion_por_comuna_2019: str = (
-        "https://medata.gov.co/sites/default/files/distribution/1-002-11-000278/"
-        "inversion_por_comuna_y_corregimiento_medellin_2019.csv"
+    investment_inversion_por_comuna_2019: str = field(
+        default_factory=lambda: os.getenv(
+            "MEDATA_INVESTMENT_URL",
+            "https://medata.gov.co/sites/default/files/distribution/1-002-11-000278/"
+            "inversion_por_comuna_y_corregimiento_medellin_2019.csv",
+        )
     )
 
     # ── Salud ──────────────────────────────────────────────────────────────

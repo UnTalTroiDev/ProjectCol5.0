@@ -15,14 +15,14 @@ from ..utils.normalize import norm_key
 logger = logging.getLogger(__name__)
 
 
-def get_residuos_solidos(year: Optional[int] = None) -> Dict[str, Any]:
+async def get_residuos_solidos(year: Optional[int] = None) -> Dict[str, Any]:
     """
     Generacion de residuos solidos del Centro Administrativo Distrital
     (ordinarios y aprovechables) por mes y año.
 
     Columnas esperadas: FECHA, AÑO, MES, TIPO_RESIDUO, CANTIDAD_KG
     """
-    df = load_environment_residuos()
+    df = await load_environment_residuos()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "by_type": [], "series": []}
 
@@ -108,5 +108,5 @@ def get_residuos_solidos(year: Optional[int] = None) -> Dict[str, Any]:
         "unit": "kg",
         "by_type": by_type,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-028-02-000599/generacion_residuos_solidos_centro_administrativo_distrital.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-028-02-000599/generacion_residuos_solidos_centro_administrativo_distrital.csv",
     }

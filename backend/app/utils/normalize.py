@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any, List, Optional
 
 import pandas as pd
@@ -8,14 +9,17 @@ import pandas as pd
 
 def norm_key(s: Any) -> str:
     """
-    Convierte un nombre de columna a clave minuscula sin caracteres especiales.
+    Convierte un nombre de columna a clave minuscula ASCII sin caracteres especiales.
+    Descompone caracteres Unicode para mapear acentos correctamente.
 
     Ejemplos:
-        'Año'        -> 'ao'
+        'Año'        -> 'ano'
         'FECHA_HECHO'-> 'fechahecho'
-        'Código'     -> 'cdigo'
+        'Código'     -> 'codigo'
     """
-    return re.sub(r"[^a-z0-9]", "", str(s).lower())
+    text = unicodedata.normalize("NFKD", str(s))
+    text = text.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
 def normalize_code(value: Any, width: int = 2) -> Optional[str]:

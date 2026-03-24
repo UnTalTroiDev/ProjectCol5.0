@@ -1,18 +1,24 @@
-FROM node:20-slim
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# Install dependencies in a separate layer so Docker cache is reused when only
-# source code changes.
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
-# Mount the rest of the source at runtime via a bind mount (docker-compose).
-# The COPY here ensures the image is self-contained for standalone runs.
 COPY . .
 
-EXPOSE 5173
+ARG VITE_API_URL=http://localhost:8000
+ENV VITE_API_URL=$VITE_API_URL
 
-# --host exposes the dev server to 0.0.0.0 so it is reachable from the host
-# and from other containers on the shared Docker network.
-CMD ["npm", "run", "dev", "--", "--host"]
+RUN npm run build
+
+# ── Stage 2: Serve ────────────────────────────────────────────────────────────
+FROM nginx:alpine
+
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

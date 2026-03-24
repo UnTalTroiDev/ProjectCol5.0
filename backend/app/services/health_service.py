@@ -15,14 +15,14 @@ from ..utils.normalize import norm_key, normalize_code
 logger = logging.getLogger(__name__)
 
 
-def get_natalidad(year: Optional[int] = None) -> Dict[str, Any]:
+async def get_natalidad(year: Optional[int] = None) -> Dict[str, Any]:
     """
     Nacimientos en Medellin por año, sexo y comuna.
 
     Columnas esperadas en natalidad.csv:
     AÑO / FECHA_NACIMIENTO, CODIGO_COMUNA, SEXO, PESO, TALLA, TIPO_PARTO
     """
-    df = load_health_natalidad()
+    df = await load_health_natalidad()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "by_comuna": [], "series": []}
 
@@ -98,15 +98,15 @@ def get_natalidad(year: Optional[int] = None) -> Dict[str, Any]:
         "by_comuna": by_comuna,
         "by_sex": by_sex,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-026-22-000029/natalidad.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-026-22-000029/natalidad.csv",
     }
 
 
-def get_hospitalizacion(year: Optional[int] = None) -> Dict[str, Any]:
+async def get_hospitalizacion(year: Optional[int] = None) -> Dict[str, Any]:
     """
     Registros de hospitalizacion en Medellin por año y diagnostico.
     """
-    df = load_health_hospitalizacion()
+    df = await load_health_hospitalizacion()
     if df is None:
         return {"available": False, "reason": "Dataset no disponible.", "by_diagnostico": [], "series": []}
 
@@ -176,5 +176,5 @@ def get_hospitalizacion(year: Optional[int] = None) -> Dict[str, Any]:
         "avg_dias_estancia": avg_days,
         "by_diagnostico": by_diagnostico,
         "series": series,
-        "dataset_url": "http://medata.gov.co/sites/default/files/distribution/1-026-22-000126/registro_hospitalizacion_prestacion_servicios_medicos.csv",
+        "dataset_url": "https://medata.gov.co/sites/default/files/distribution/1-026-22-000126/registro_hospitalizacion_prestacion_servicios_medicos.csv",
     }
